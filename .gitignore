@@ -1,0 +1,45 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- Backend runtime artifacts (all regenerable) ---
+backend/predictrace.db
+backend/app/ml/artifacts/*.joblib
+backend/app/ml/artifacts/*.csv
+backend/app/ml/artifacts/evaluation_report.json
+backend/app/ml/artifacts/metadata.json
+
+# --- Frontend (once it exists) ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+node_modules/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Docker ---
+*.pid
+
+# --- Demo artifacts (large binaries, not source) ---
+backup_demo.mp4
