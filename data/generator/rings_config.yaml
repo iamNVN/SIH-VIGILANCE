@@ -63,6 +63,12 @@ cities:
     state: "Maharashtra"
     lat: 19.0760
     lon: 72.8777
+    # Mumbai is a narrow coastal peninsula (sea on multiple sides within a
+    # few km of the city center) -- the default +/-0.12 deg (~13km) jitter
+    # used for inland cities regularly landed points in the Arabian Sea.
+    # Tighter box, still centered on the city, keeps points on land.
+    lat_jitter: [-0.04, 0.04]
+    lon_jitter: [-0.03, 0.03]
   - name: "Delhi"
     state: "Delhi"
     lat: 28.7041
@@ -71,6 +77,12 @@ cities:
     state: "Tamil Nadu"
     lat: 13.0827
     lon: 80.2707
+    # Chennai's coastline (Bay of Bengal) runs just ~1-2km east of the city
+    # center -- any eastward jitter risked placing withdrawal points in the
+    # sea (this is the literal bug the "predictions are in the ocean" report
+    # traced back to). Jitter is capped to stay west/inland of the coast.
+    lat_jitter: [-0.12, 0.12]
+    lon_jitter: [-0.15, -0.01]
   - name: "Hyderabad"
     state: "Telangana"
     lat: 17.3850

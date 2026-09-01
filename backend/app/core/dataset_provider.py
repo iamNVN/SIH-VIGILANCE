@@ -26,6 +26,10 @@ def _read(table: str) -> pd.DataFrame:
 def get_dataset(force_refresh: bool = False) -> Dataset:
     global _cached
     if _cached is None or force_refresh:
+        # A fresh Dataset object each refresh (not mutated in place) is what
+        # lets graph_engine/graph_cache.py invalidate for free -- it keys on
+        # id(dataset), so a new object here can never collide with a stale
+        # cached graph/community-detection result from before this refresh.
         _cached = Dataset(
             accounts=_read("accounts"),
             transactions=_read("transactions"),

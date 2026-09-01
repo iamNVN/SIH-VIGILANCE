@@ -108,4 +108,8 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
         "bank_name": complaint.bank_name,
         "predictions": predictions,
         "baseline_comparison": baseline_comparison,
+        # How many cash-out points were actually scored for this complaint --
+        # lets the UI show confidence relative to random chance (1/n_candidates)
+        # instead of a bare percentage that reads as low in isolation.
+        "n_candidates": int(len(candidates)),
     }

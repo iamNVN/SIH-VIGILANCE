@@ -141,8 +141,12 @@ class Generator:
                 kind = self.rng.choice(["ATM", "ATM", "ATM", "Branch"])  # ATMs more common
                 area = self.rng.choice(area_names)
                 # jitter lat/lon within roughly a 15km radius of city center
-                lat = city["lat"] + self.rng.uniform(-0.12, 0.12)
-                lon = city["lon"] + self.rng.uniform(-0.12, 0.12)
+                # (some cities override this range in rings_config.yaml to
+                # stay clear of the coastline -- see lat_jitter/lon_jitter)
+                lat_min, lat_max = city.get("lat_jitter", [-0.12, 0.12])
+                lon_min, lon_max = city.get("lon_jitter", [-0.12, 0.12])
+                lat = city["lat"] + self.rng.uniform(lat_min, lat_max)
+                lon = city["lon"] + self.rng.uniform(lon_min, lon_max)
                 self.withdrawal_points.append({
                     "id": self._next_id("withdrawal_point"),
                     "name": f"{bank['name']} {kind}, {area}, {city['name']}",

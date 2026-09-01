@@ -56,8 +56,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from graph_engine.build_graph import build_graph
-from graph_engine.community import detect_communities
+from graph_engine.graph_cache import get_graph_and_communities
 
 RECENCY_DECAY_LAMBDA = 1.0 / 12.0  # per hour -- half-life-ish over ~8 hours, tuned to the rings_config fast/slow delay split (1-48h)
 GEO_KERNEL_BANDWIDTH_KM = 2.0       # matches Blueprint Section 18's "hit-rate within 2km" operational radius
@@ -116,12 +115,29 @@ class Dataset:
         return self.withdrawal_points[self.withdrawal_points["city"] == city].reset_index(drop=True)
 
 
+class NoKnownTransactionChain(Exception):
+    """Raised when a complaint has no hop-0 transaction at all -- e.g. a
+    complaint created via `POST /complaints` without a matching seeded/traced
+    transaction chain. The graph/predict/explain endpoints all need at least
+    the victim's first known transfer (Section 2's "first known transaction
+    reference") to do anything; this is a real, expected input-validation
+    case, not a bug, so it's a distinct exception type rather than letting
+    pandas' IndexError leak out as an unhandled 500."""
+
+    def __init__(self, complaint_id: int):
+        super().__init__(f"complaint {complaint_id} has no recorded transaction chain yet")
+        self.complaint_id = complaint_id
+
+
 def known_chain_state(ds: Dataset, complaint_id: int, as_of: pd.Timestamp):
     """Returns (frontier_account_id, chain_depth, last_known_timestamp) for
     what is knowable about this complaint's fund-flow chain strictly before
     `as_of`, per the module's "known chain" design note above."""
     ctx = ds.transactions[ds.transactions["complaint_id"] == complaint_id].sort_values("hop_index")
-    hop0 = ctx[ctx["hop_index"] == 0].iloc[0]
+    hop0_rows = ctx[ctx["hop_index"] == 0]
+    if hop0_rows.empty:
+        raise NoKnownTransactionChain(complaint_id)
+    hop0 = hop0_rows.iloc[0]
     frontier = hop0["to_account_id"]
     depth = 1
     last_ts = hop0["timestamp"]
@@ -136,6 +152,26 @@ def known_chain_state(ds: Dataset, complaint_id: int, as_of: pd.Timestamp):
     return frontier, depth, last_ts
 
 
+def known_chain_accounts(ds: Dataset, complaint_id: int, as_of: pd.Timestamp) -> list:
+    """The ordered list of account ids along this complaint's traced chain
+    (victim -> hop1 -> hop2 -> ... -> frontier), for exactly as much of the
+    chain as is known before `as_of`. Used by the graph endpoint to always
+    show the actual traced path, regardless of how large the account's
+    discovered community turns out to be (see api/graph.py's node-selection
+    rewrite -- a community can run into the hundreds of accounts, and this
+    is the small, always-relevant core of the picture)."""
+    ctx = ds.transactions[ds.transactions["complaint_id"] == complaint_id].sort_values("hop_index")
+    hop0_rows = ctx[ctx["hop_index"] == 0]
+    if hop0_rows.empty:
+        raise NoKnownTransactionChain(complaint_id)
+
+    chain = [int(hop0_rows.iloc[0]["from_account_id"]), int(hop0_rows.iloc[0]["to_account_id"])]
+    known_later_hops = ctx[(ctx["hop_index"] > 0) & (ctx["timestamp"] < as_of)].sort_values("hop_index")
+    for _, row in known_later_hops.iterrows():
+        chain.append(int(row["to_account_id"]))
+    return chain
+
+
 def build_candidate_features(ds: Dataset, complaint_row: pd.Series, seed: int = 42) -> pd.DataFrame:
     """Build one feature row per candidate withdrawal point (all points in
     the victim's city) for a single complaint. Returns a DataFrame with a
@@ -144,8 +180,7 @@ def build_candidate_features(ds: Dataset, complaint_row: pd.Series, seed: int = 
     as_of = complaint_row["filed_at"]
     victim_city = ds.victim_city[complaint_row["victim_id"]]
 
-    G = build_graph(ds.accounts, ds.transactions, ds.withdrawal_points, ds.withdrawal_events, as_of=as_of)
-    node_to_community = detect_communities(G, seed=seed)
+    G, node_to_community = get_graph_and_communities(ds, as_of, seed=seed)
 
     frontier, chain_depth, last_ts = known_chain_state(ds, complaint_id, as_of)
     frontier_node = f"acc_{frontier}"

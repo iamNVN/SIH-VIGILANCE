@@ -46,13 +46,14 @@ def explain_row(base_model, feature_columns: List[str], row: pd.Series) -> dict:
 
 
 def narrative_from_explanation(explanation: dict, community_size: int, community_num_complaints: int) -> str:
+    # Deliberately just the plain-language summary sentence -- the raw
+    # "feature=value (impact +N)" drivers are returned separately as
+    # `top_features` and translated into full readable sentences client-side
+    # (frontend/src/utils/featureLabels.js), not dumped as technical text here.
     if community_num_complaints > 0:
         return (
             f"This account's cluster shows activity linked to {community_num_complaints} other "
             f"complaint(s) (community size {community_size}), and historically cashes out near "
-            f"this location. Top drivers: {', '.join(explanation['top_features'])}."
+            f"this location."
         )
-    return (
-        f"No prior linked complaints found for this cluster yet; ranking is driven by geospatial "
-        f"and recency signal. Top drivers: {', '.join(explanation['top_features'])}."
-    )
+    return "No prior linked complaints found for this cluster yet; ranking is driven by geospatial and recency signal."
