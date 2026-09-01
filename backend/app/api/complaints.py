@@ -2,8 +2,10 @@
 
 from datetime import datetime, timezone
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from api.schemas import ComplaintCreate, ComplaintOut
@@ -31,13 +33,38 @@ def _to_out(complaint: Complaint) -> ComplaintOut:
 
 
 @router.get("", response_model=list[ComplaintOut])
-def list_complaints(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+def list_complaints(skip: int = 0, limit: int = 50, q: Optional[str] = None, db: Session = Depends(get_db)):
     limit = min(limit, 200)
-    rows = db.execute(
-        select(Complaint).options(joinedload(Complaint.victim))
-        .order_by(Complaint.filed_at.desc()).offset(skip).limit(limit)
-    ).scalars().all()
+    stmt = select(Complaint).options(joinedload(Complaint.victim))
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.join(Victim).where(
+            or_(
+                Victim.name_fake.ilike(needle),
+                Victim.city.ilike(needle),
+                Complaint.bank_name.ilike(needle),
+                Complaint.id == (int(q) if q.strip().isdigit() else -1),
+            )
+        )
+    rows = db.execute(stmt.order_by(Complaint.filed_at.desc()).offset(skip).limit(limit)).scalars().all()
     return [_to_out(r) for r in rows]
+
+
+@router.get("/count")
+def count_complaints(q: Optional[str] = None, db: Session = Depends(get_db)):
+    stmt = select(Complaint)
+    if q:
+        needle = f"%{q.strip()}%"
+        stmt = stmt.join(Victim).where(
+            or_(
+                Victim.name_fake.ilike(needle),
+                Victim.city.ilike(needle),
+                Complaint.bank_name.ilike(needle),
+                Complaint.id == (int(q) if q.strip().isdigit() else -1),
+            )
+        )
+    total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+    return {"total": total}
 
 
 @router.get("/{complaint_id}", response_model=ComplaintOut)

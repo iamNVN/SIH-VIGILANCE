@@ -4,6 +4,7 @@ import { api } from "../../api/client";
 import { useApi } from "../../api/useApi";
 import GraphVisualization, { GraphLegend } from "../../components/GraphVisualization";
 import MoneyTrail from "../../components/MoneyTrail";
+import SectionHeader from "../../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../../components/StateViews";
 
 export default function FundFlowGraph() {
@@ -14,37 +15,34 @@ export default function FundFlowGraph() {
   return (
     <div className="space-y-6">
       <div className="card p-5">
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-ink-secondary">This case's money trail</h3>
-          <p className="text-xs text-ink-muted">
-            Where the victim's money is known to have moved so far, one step at a time.
-          </p>
-        </div>
-
+        <SectionHeader color="series-7">This case's money trail</SectionHeader>
         {loading && <LoadingSpinner label="Tracing the money trail…" />}
         {error && <ErrorState message={error} />}
         {graphData && <MoneyTrail graphData={graphData} />}
       </div>
 
       <div className="card p-5">
-        <div className="mb-3 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-ink-secondary">Wider discovered network</h3>
-            <p className="text-xs text-ink-muted">
-              Other accounts and cash-out points statistically clustered with this case -- useful for spotting a
-              ring, but not part of this case's own confirmed trail above.
-            </p>
-          </div>
-          {graphData?.community_id !== null && graphData && (
-            <div className="shrink-0 text-right text-xs text-ink-muted">
-              <p>{graphData.community_members_shown} of {graphData.community_size_total} linked accounts</p>
-            </div>
-          )}
-        </div>
+        <SectionHeader
+          color="series-7"
+          action={
+            graphData?.community_id !== null &&
+            graphData && (
+              <span className="id-tag shrink-0 rounded-sm bg-series-7/10 px-2 py-1 text-xs text-series-7">
+                {graphData.community_members_shown} of {graphData.community_size_total} linked accounts
+              </span>
+            )
+          }
+        >
+          Wider discovered network
+        </SectionHeader>
+        <p className="mb-3 text-xs text-ink-muted">
+          Other accounts statistically clustered with this case -- useful for spotting a ring, not part of the
+          confirmed trail above.
+        </p>
 
         <button
           onClick={() => setShowNetwork((v) => !v)}
-          className="rounded-md border border-surface-border px-3 py-1.5 text-xs font-medium text-ink-secondary hover:bg-white/5"
+          className="rounded-md border border-series-7/40 bg-series-7/10 px-3 py-1.5 text-xs font-medium text-series-7 hover:bg-series-7/20"
         >
           {showNetwork ? "Hide wider network" : "Show wider network"}
         </button>

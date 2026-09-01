@@ -2,14 +2,19 @@ import { Navigate, Route, HashRouter as Router, Routes } from "react-router-dom"
 import { AuthProvider } from "./auth/AuthContext";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Alerts from "./pages/Alerts";
 import Analytics from "./pages/Analytics";
 import Brief from "./pages/case/Brief";
 import CashOutMapPage from "./pages/case/CashOutMapPage";
 import FundFlowGraph from "./pages/case/FundFlowGraph";
 import Overview from "./pages/case/Overview";
 import CaseWorkspace from "./pages/CaseWorkspace";
+import Cases from "./pages/Cases";
 import CommandCenter from "./pages/CommandCenter";
+import FraudRings from "./pages/FraudRings";
 import Login from "./pages/Login";
+import Predictions from "./pages/Predictions";
+import Settings from "./pages/Settings";
 
 export default function App() {
   return (
@@ -26,7 +31,12 @@ export default function App() {
             }
           >
             <Route path="/" element={<CommandCenter />} />
+            <Route path="/cases" element={<Cases />} />
+            <Route path="/rings" element={<FraudRings />} />
+            <Route path="/predictions" element={<Predictions />} />
+            <Route path="/alerts" element={<Alerts />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
 
             <Route path="/cases/:id" element={<CaseWorkspace />}>
               <Route index element={<Navigate to="overview" replace />} />

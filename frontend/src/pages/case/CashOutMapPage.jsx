@@ -6,6 +6,7 @@ import { useApi } from "../../api/useApi";
 import { ConfidenceBadge, UrgencyBadge } from "../../components/Badges";
 import CashOutMap from "../../components/CashOutMap";
 import ExplanationPanel from "../../components/ExplanationPanel";
+import SectionHeader from "../../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../../components/StateViews";
 import { confidenceContext } from "../../utils/confidence";
 import { explainToSentences } from "../../utils/featureLabels";
@@ -31,6 +32,19 @@ function ReasonList({ prediction }) {
   );
 }
 
+function RankBadge({ rank }) {
+  const isTop = rank === 1;
+  return (
+    <span
+      className={`id-tag flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-[11px] font-bold ${
+        isTop ? "bg-series-2 text-white" : "bg-white/10 text-ink-muted"
+      }`}
+    >
+      {rank}
+    </span>
+  );
+}
+
 function PredictionRow({ p, nCandidates, defaultOpen }) {
   const ctx = confidenceContext(p.confidence, nCandidates);
   return (
@@ -38,10 +52,9 @@ function PredictionRow({ p, nCandidates, defaultOpen }) {
       defaultOpen={defaultOpen}
       summary={
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink-primary">
-              <span className="id-tag text-ink-muted">#{p.rank}</span> {p.name}
-            </p>
+          <div className="flex min-w-0 items-center gap-2">
+            <RankBadge rank={p.rank} />
+            <p className="truncate text-sm font-semibold text-ink-primary">{p.name}</p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <ConfidenceBadge confidence={p.confidence} compact />
@@ -53,7 +66,7 @@ function PredictionRow({ p, nCandidates, defaultOpen }) {
       <div className="space-y-3">
         <p className="text-sm text-ink-primary">{p.explanation.narrative}</p>
         {ctx && (
-          <p className="rounded-sm bg-series-1/10 px-3 py-2 text-sm font-medium text-series-1">
+          <p className="rounded-sm bg-series-2/10 px-3 py-2 text-sm font-medium text-series-2">
             {Math.round(p.confidence * 100)}% confidence is {ctx.sentence}
           </p>
         )}
@@ -79,7 +92,7 @@ export default function CashOutMapPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="card p-5">
-            <h3 className="mb-3 text-sm font-semibold text-ink-secondary">Predicted cash-out locations</h3>
+            <SectionHeader color="series-2">Predicted cash-out locations</SectionHeader>
             {predLoading && <LoadingSpinner label="Scoring candidate locations…" />}
             {predError && <ErrorState message={predError} />}
             {prediction && <CashOutMap predictions={prediction.predictions} />}
@@ -87,10 +100,7 @@ export default function CashOutMapPage() {
         </div>
 
         <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold text-ink-secondary">Ranked list</h3>
-            <p className="text-xs text-ink-muted">Click any location to see why it was ranked here.</p>
-          </div>
+          <SectionHeader color="series-2">Ranked list</SectionHeader>
           {prediction?.predictions.map((p) => (
             <PredictionRow
               key={p.withdrawal_point_id}
@@ -109,7 +119,6 @@ export default function CashOutMapPage() {
         >
           <div>
             <h3 className="text-sm font-semibold text-ink-secondary">Technical detail: model feature weights (SHAP)</h3>
-            <p className="text-xs text-ink-muted">For anyone who wants to verify the numbers behind the #1 prediction, not just read the summary.</p>
           </div>
           <span className="id-tag shrink-0 text-xs text-ink-muted">{showTechnical ? "Hide" : "Show"}</span>
         </button>

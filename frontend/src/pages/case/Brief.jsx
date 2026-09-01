@@ -1,7 +1,9 @@
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { api } from "../../api/client";
 import { useApi } from "../../api/useApi";
+import SectionHeader from "../../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../../components/StateViews";
 
 export default function Brief() {
@@ -11,14 +13,12 @@ export default function Brief() {
 
   return (
     <div className="card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-ink-secondary">Intervention brief</h3>
-          <p className="text-xs text-ink-muted">
-            Auto-generated, deterministic template — nothing here is auto-executed. Requires investigator sign-off.
-          </p>
-        </div>
-      </div>
+      <SectionHeader
+        color="series-6"
+        action={<span className="id-tag text-[10px] uppercase tracking-wide text-ink-muted">Requires sign-off · not auto-executed</span>}
+      >
+        Intervention brief
+      </SectionHeader>
 
       {loading && <LoadingSpinner label="Generating brief…" />}
       {error && <ErrorState message={error} />}
@@ -43,9 +43,15 @@ export default function Brief() {
               ✗ Reject
             </button>
             {decision && (
-              <span className="text-sm text-ink-muted">
-                Recorded as <strong className="text-ink-primary">{decision}</strong> by this investigator (demo — not wired to a real dispatch system).
-              </span>
+              <motion.span
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className={`rounded-sm px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${
+                  decision === "approved" ? "bg-status-good/15 text-status-good" : "bg-status-critical/15 text-status-critical"
+                }`}
+              >
+                {decision}
+              </motion.span>
             )}
           </div>
         </>

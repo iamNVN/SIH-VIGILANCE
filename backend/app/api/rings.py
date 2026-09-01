@@ -1,0 +1,111 @@
+"""
+rings.py -- lists detected fraud rings (Louvain communities with >= 3
+linked accounts) across the CURRENT full graph, each with real derived
+stats: how many complaints touch it, total amount at risk, and where its
+cash-outs cluster. This is the second real destination in the sidebar nav
+(previously the app only had one) -- an investigator's "what rings are
+active right now" view, distinct from a single case's own investigation.
+"""
+
+import time
+from collections import Counter
+
+from fastapi import APIRouter, HTTPException
+
+from core import dataset_provider
+from graph_engine.build_graph import build_graph
+from graph_engine.community import community_sizes, detect_communities
+
+router = APIRouter(tags=["rings"])
+
+_CACHE_TTL_SECONDS = 30
+_cache = {"computed_at": 0.0, "rings": []}
+
+
+def _compute_rings():
+    ds = dataset_provider.get_dataset()
+    G = build_graph(ds.accounts, ds.transactions, ds.withdrawal_points, ds.withdrawal_events, as_of=None)
+    node_to_community = detect_communities(G)
+    sizes = community_sizes(node_to_community)
+
+    accounts_by_id = ds.accounts.set_index("id")
+    wpoints_by_id = ds.withdrawal_points.set_index("id")
+
+    rings = []
+    for community_id, size in sizes.items():
+        if size < 3:
+            continue
+
+        member_ids = {
+            int(n.split("_", 1)[1]) for n, c in node_to_community.items() if c == community_id and n.startswith("acc_")
+        }
+
+        tx = ds.transactions[
+            ds.transactions["from_account_id"].isin(member_ids) | ds.transactions["to_account_id"].isin(member_ids)
+        ]
+        we = ds.withdrawal_events[ds.withdrawal_events["account_id"].isin(member_ids)]
+
+        complaint_ids = sorted(set(tx["complaint_id"].dropna().astype(int)) | set(we["complaint_id"].dropna().astype(int)))
+        if not complaint_ids:
+            continue
+
+        linked = ds.complaints[ds.complaints["id"].isin(complaint_ids)]
+        total_amount = float(linked["amount_lost"].sum())
+
+        cities = [
+            wpoints_by_id.loc[pid, "city"]
+            for pid in we["withdrawal_point_id"].dropna().astype(int)
+            if pid in wpoints_by_id.index
+        ]
+        top_city = Counter(cities).most_common(1)[0][0] if cities else None
+
+        banks = [
+            accounts_by_id.loc[aid, "bank_name"]
+            for aid in member_ids
+            if aid in accounts_by_id.index
+        ]
+        top_bank = Counter(banks).most_common(1)[0][0] if banks else None
+
+        last_activity = None
+        if len(tx) > 0:
+            last_activity = tx["timestamp"].max()
+        if len(we) > 0:
+            we_max = we["timestamp"].max()
+            last_activity = we_max if last_activity is None else max(last_activity, we_max)
+
+        rings.append({
+            "community_id": int(community_id),
+            "size": size,
+            "num_complaints": len(complaint_ids),
+            "total_amount_at_risk": total_amount,
+            "top_city": top_city,
+            "top_bank": top_bank,
+            "last_activity": last_activity.isoformat() if last_activity is not None else None,
+            "sample_complaint_id": complaint_ids[0],
+        })
+
+    rings.sort(key=lambda r: r["total_amount_at_risk"], reverse=True)
+    return rings
+
+
+def _cached_rings():
+    now = time.time()
+    if now - _cache["computed_at"] < _CACHE_TTL_SECONDS:
+        return _cache["rings"]
+    rings = _compute_rings()
+    _cache.update({"computed_at": now, "rings": rings})
+    return rings
+
+
+@router.get("/rings")
+def list_rings(limit: int = 50):
+    return {"rings": _cached_rings()[: min(limit, 200)]}
+
+
+@router.get("/rings/{community_id}")
+def get_ring(community_id: int):
+    rings = _cached_rings()
+    for r in rings:
+        if r["community_id"] == community_id:
+            return r
+    raise HTTPException(404, f"ring {community_id} not found (it may be below the 3-account threshold)")

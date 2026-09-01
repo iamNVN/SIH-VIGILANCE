@@ -45,7 +45,7 @@ export default function CommandCenter() {
   const [page, setPage] = useState(0);
   const { data: stats, loading: statsLoading, reload: reloadStats } = useApi((signal) => api.stats(signal), []);
   const { data: complaints, error, loading, reload } = useApi(
-    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, signal),
+    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, "", signal),
     [page]
   );
   const [triggering, setTriggering] = useState(false);
