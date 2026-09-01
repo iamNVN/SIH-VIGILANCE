@@ -1,0 +1,52 @@
+# docker-compose.yml -- Blueprint Section 21/22.
+#
+# NOTE: written and kept ready for when Docker is actually available. The
+# dev environment this was built in has Docker Desktop's *service*
+# registered but no actual install present (confirmed while building this
+# backend -- no docker.exe, no program files), so this compose file could
+# not itself be run here. Today's backend runs against SQLite instead (see
+# backend/app/core/config.py's note) with the exact same SQLAlchemy models,
+# which is why DATABASE_URL below is the only thing that needs to change to
+# switch a running instance from SQLite to this Postgres service.
+#
+# Once Docker is available:
+#   docker compose up --build
+#   docker compose exec backend python scripts/seed_db.py --data-dir /app/data/output
+#   docker compose exec backend python -m ml.train
+# (both run from repo root; seed_db.py/ml.train already accept --data-dir)
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: predictrace
+      POSTGRES_PASSWORD: predictrace
+      POSTGRES_DB: predictrace
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U predictrace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://predictrace:predictrace@db:5432/predictrace
+      DATA_DIR: /app/data/output
+      MODEL_ARTIFACTS_DIR: /app/app/ml/artifacts
+    volumes:
+      - ./data:/app/data
+      - ./backend/app/ml/artifacts:/app/app/ml/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

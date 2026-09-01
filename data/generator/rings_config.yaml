@@ -1,0 +1,85 @@
+# PredicTrace synthetic data generator configuration
+# This drives PROCEDURAL generation of fraud rings — it does not hand-author
+# individual rings. See Section 6 of the Execution Blueprint for the design rationale.
+
+random_seed: 42
+
+window:
+  start_date: "2026-06-01"
+  days: 90              # synthetic 90-day window
+
+rings:
+  count: 25
+  mule_accounts_per_ring_min: 3
+  mule_accounts_per_ring_max: 8
+  withdrawal_points_per_ring_min: 5
+  withdrawal_points_per_ring_max: 15
+  hop_count_min: 2
+  hop_count_max: 4
+  # each ring is randomly assigned a "fast" or "slow" cash-out delay profile
+  fast_ring_fraction: 0.5
+  fast_delay_hours_min: 1
+  fast_delay_hours_max: 6
+  slow_delay_hours_min: 12
+  slow_delay_hours_max: 48
+
+cases:
+  per_ring_min: 15
+  per_ring_max: 40
+  # fraction of complaints filed BEFORE the ground-truth withdrawal
+  # (i.e. still actionable at the moment the complaint arrives)
+  actionable_fraction: 0.8
+  # for actionable cases, how long before withdrawal the complaint is filed
+  actionable_lead_hours_min: 0.5
+  actionable_lead_hours_max: 10
+  # for non-actionable ("too late") cases, how long after withdrawal
+  too_late_lag_hours_min: 1
+  too_late_lag_hours_max: 24
+
+noise:
+  # background transactions between random unrelated accounts,
+  # expressed as a fraction of total ring-driven transactions
+  background_transaction_fraction: 0.30
+  normal_account_pool_size: 800
+
+unseen_test_patterns:
+  # off-pattern complaints injected ONLY in the final 20% (test) time period,
+  # to genuinely test generalization rather than memorized ring membership
+  count: 40
+  hop_count: 1   # single-hop, i.e. no real layering — a harder, different shape
+
+amount:
+  victim_loss_min: 5000
+  victim_loss_max: 500000
+  # amount is split across hops with this much random jitter
+  split_jitter: 0.15
+
+cities:
+  - name: "Bengaluru"
+    state: "Karnataka"
+    lat: 12.9716
+    lon: 77.5946
+  - name: "Mumbai"
+    state: "Maharashtra"
+    lat: 19.0760
+    lon: 72.8777
+  - name: "Delhi"
+    state: "Delhi"
+    lat: 28.7041
+    lon: 77.1025
+  - name: "Chennai"
+    state: "Tamil Nadu"
+    lat: 13.0827
+    lon: 80.2707
+  - name: "Hyderabad"
+    state: "Telangana"
+    lat: 17.3850
+    lon: 78.4867
+
+banks:
+  - { name: "State Bank of India", code: "SBIN" }
+  - { name: "HDFC Bank",           code: "HDFC" }
+  - { name: "ICICI Bank",          code: "ICIC" }
+  - { name: "Axis Bank",           code: "UTIB" }
+  - { name: "Punjab National Bank", code: "PUNB" }
+  - { name: "Bank of Baroda",      code: "BARB" }

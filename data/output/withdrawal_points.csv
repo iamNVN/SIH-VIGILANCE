@@ -1,0 +1,201 @@
+id,name,type,lat,lon,city,bank_name
+1,"Bank of Baroda ATM, MG Road, Bengaluru",ATM,13.0296,77.5334,Bengaluru,Bank of Baroda
+2,"HDFC Bank ATM, Fort Area, Bengaluru",ATM,13.0294,77.6055,Bengaluru,HDFC Bank
+3,"Punjab National Bank Branch, MG Road, Bengaluru",Branch,12.8588,77.5271,Bengaluru,Punjab National Bank
+4,"Punjab National Bank ATM, Sector 12, Bengaluru",ATM,12.8993,77.6306,Bengaluru,Punjab National Bank
+5,"Punjab National Bank Branch, Ring Road, Bengaluru",Branch,12.9594,77.5414,Bengaluru,Punjab National Bank
+6,"State Bank of India ATM, Lake View, Bengaluru",ATM,12.953,77.5413,Bengaluru,State Bank of India
+7,"HDFC Bank ATM, Station Road, Bengaluru",ATM,12.8739,77.4978,Bengaluru,HDFC Bank
+8,"ICICI Bank ATM, Airport Road, Bengaluru",ATM,12.862,77.5849,Bengaluru,ICICI Bank
+9,"State Bank of India Branch, Station Road, Bengaluru",Branch,12.9841,77.6737,Bengaluru,State Bank of India
+10,"Punjab National Bank ATM, Bus Stand, Bengaluru",ATM,12.8977,77.4913,Bengaluru,Punjab National Bank
+11,"Bank of Baroda ATM, Airport Road, Bengaluru",ATM,12.9211,77.4938,Bengaluru,Bank of Baroda
+12,"HDFC Bank ATM, Tech Park, Bengaluru",ATM,12.9183,77.6272,Bengaluru,HDFC Bank
+13,"ICICI Bank ATM, Old Town, Bengaluru",ATM,12.9369,77.6354,Bengaluru,ICICI Bank
+14,"Bank of Baroda ATM, Bus Stand, Bengaluru",ATM,13.004,77.6028,Bengaluru,Bank of Baroda
+15,"HDFC Bank ATM, Junction, Bengaluru",ATM,12.9427,77.7121,Bengaluru,HDFC Bank
+16,"Bank of Baroda ATM, Fort Area, Bengaluru",ATM,12.9294,77.659,Bengaluru,Bank of Baroda
+17,"State Bank of India ATM, Industrial Estate, Bengaluru",ATM,12.8593,77.5503,Bengaluru,State Bank of India
+18,"ICICI Bank ATM, Ring Road, Bengaluru",ATM,13.0708,77.6107,Bengaluru,ICICI Bank
+19,"Bank of Baroda ATM, Ring Road, Bengaluru",ATM,13.0089,77.5696,Bengaluru,Bank of Baroda
+20,"Bank of Baroda Branch, Market Yard, Bengaluru",Branch,12.9152,77.5338,Bengaluru,Bank of Baroda
+21,"Punjab National Bank ATM, Lake View, Bengaluru",ATM,12.9919,77.6901,Bengaluru,Punjab National Bank
+22,"Axis Bank ATM, Ring Road, Bengaluru",ATM,13.091,77.5078,Bengaluru,Axis Bank
+23,"Axis Bank ATM, Airport Road, Bengaluru",ATM,12.8629,77.5009,Bengaluru,Axis Bank
+24,"Bank of Baroda ATM, Airport Road, Bengaluru",ATM,13.0149,77.6177,Bengaluru,Bank of Baroda
+25,"Axis Bank Branch, Bus Stand, Bengaluru",Branch,13.0907,77.6016,Bengaluru,Axis Bank
+26,"Punjab National Bank ATM, Fort Area, Bengaluru",ATM,13.0246,77.6382,Bengaluru,Punjab National Bank
+27,"Punjab National Bank ATM, Airport Road, Bengaluru",ATM,13.0054,77.5014,Bengaluru,Punjab National Bank
+28,"Axis Bank ATM, Junction, Bengaluru",ATM,12.8524,77.6479,Bengaluru,Axis Bank
+29,"Bank of Baroda ATM, Sector 12, Bengaluru",ATM,13.0345,77.5964,Bengaluru,Bank of Baroda
+30,"State Bank of India ATM, Industrial Estate, Bengaluru",ATM,13.0049,77.6208,Bengaluru,State Bank of India
+31,"HDFC Bank ATM, Airport Road, Bengaluru",ATM,12.8904,77.7034,Bengaluru,HDFC Bank
+32,"Punjab National Bank ATM, Bus Stand, Bengaluru",ATM,12.9294,77.4793,Bengaluru,Punjab National Bank
+33,"ICICI Bank ATM, Ring Road, Bengaluru",ATM,12.8655,77.6853,Bengaluru,ICICI Bank
+34,"State Bank of India ATM, Lake View, Bengaluru",ATM,12.9682,77.4912,Bengaluru,State Bank of India
+35,"Punjab National Bank ATM, Market Yard, Bengaluru",ATM,13.0099,77.7018,Bengaluru,Punjab National Bank
+36,"HDFC Bank ATM, Sector 12, Bengaluru",ATM,13.061,77.5762,Bengaluru,HDFC Bank
+37,"HDFC Bank ATM, Lake View, Bengaluru",ATM,12.9264,77.7134,Bengaluru,HDFC Bank
+38,"Bank of Baroda ATM, Junction, Bengaluru",ATM,13.0675,77.583,Bengaluru,Bank of Baroda
+39,"HDFC Bank ATM, Station Road, Bengaluru",ATM,12.9327,77.6158,Bengaluru,HDFC Bank
+40,"HDFC Bank ATM, MG Road, Bengaluru",ATM,12.8686,77.6261,Bengaluru,HDFC Bank
+41,"HDFC Bank ATM, Central Plaza, Mumbai",ATM,18.9635,72.837,Mumbai,HDFC Bank
+42,"Punjab National Bank ATM, Civil Lines, Mumbai",ATM,19.1166,72.8091,Mumbai,Punjab National Bank
+43,"HDFC Bank Branch, Ring Road, Mumbai",Branch,19.1443,72.9515,Mumbai,HDFC Bank
+44,"HDFC Bank ATM, Station Road, Mumbai",ATM,19.1142,72.8427,Mumbai,HDFC Bank
+45,"Axis Bank Branch, Industrial Estate, Mumbai",Branch,19.131,72.9193,Mumbai,Axis Bank
+46,"Bank of Baroda ATM, MG Road, Mumbai",ATM,19.0526,72.8391,Mumbai,Bank of Baroda
+47,"State Bank of India ATM, Ring Road, Mumbai",ATM,19.0017,72.8654,Mumbai,State Bank of India
+48,"Axis Bank ATM, Civil Lines, Mumbai",ATM,19.067,72.9676,Mumbai,Axis Bank
+49,"State Bank of India Branch, Airport Road, Mumbai",Branch,19.1627,72.8898,Mumbai,State Bank of India
+50,"State Bank of India ATM, Station Road, Mumbai",ATM,19.1783,72.9614,Mumbai,State Bank of India
+51,"HDFC Bank Branch, Junction, Mumbai",Branch,19.0715,72.9652,Mumbai,HDFC Bank
+52,"State Bank of India ATM, Tech Park, Mumbai",ATM,18.9565,72.8514,Mumbai,State Bank of India
+53,"Axis Bank ATM, Tech Park, Mumbai",ATM,19.1232,72.933,Mumbai,Axis Bank
+54,"Punjab National Bank Branch, Market Yard, Mumbai",Branch,19.0016,72.8099,Mumbai,Punjab National Bank
+55,"State Bank of India ATM, Lake View, Mumbai",ATM,19.0313,72.7697,Mumbai,State Bank of India
+56,"Axis Bank ATM, MG Road, Mumbai",ATM,19.1866,72.7769,Mumbai,Axis Bank
+57,"HDFC Bank ATM, Bus Stand, Mumbai",ATM,18.9723,72.9645,Mumbai,HDFC Bank
+58,"Axis Bank ATM, Central Plaza, Mumbai",ATM,19.0927,72.8966,Mumbai,Axis Bank
+59,"State Bank of India ATM, Tech Park, Mumbai",ATM,19.1138,72.8934,Mumbai,State Bank of India
+60,"ICICI Bank ATM, Ring Road, Mumbai",ATM,19.1167,72.8331,Mumbai,ICICI Bank
+61,"ICICI Bank Branch, Market Yard, Mumbai",Branch,19.1172,72.8297,Mumbai,ICICI Bank
+62,"ICICI Bank ATM, MG Road, Mumbai",ATM,19.066,72.9973,Mumbai,ICICI Bank
+63,"State Bank of India ATM, Sector 12, Mumbai",ATM,19.0072,72.8213,Mumbai,State Bank of India
+64,"ICICI Bank ATM, Central Plaza, Mumbai",ATM,19.0146,72.8261,Mumbai,ICICI Bank
+65,"Axis Bank ATM, Bus Stand, Mumbai",ATM,19.1921,72.9514,Mumbai,Axis Bank
+66,"Punjab National Bank ATM, Fort Area, Mumbai",ATM,19.1521,72.8296,Mumbai,Punjab National Bank
+67,"Bank of Baroda ATM, Central Plaza, Mumbai",ATM,18.9882,72.7854,Mumbai,Bank of Baroda
+68,"State Bank of India ATM, Civil Lines, Mumbai",ATM,19.0236,72.8083,Mumbai,State Bank of India
+69,"ICICI Bank ATM, Fort Area, Mumbai",ATM,19.1082,72.8211,Mumbai,ICICI Bank
+70,"Axis Bank ATM, Central Plaza, Mumbai",ATM,19.174,72.7699,Mumbai,Axis Bank
+71,"Bank of Baroda Branch, Industrial Estate, Mumbai",Branch,19.0224,72.7586,Mumbai,Bank of Baroda
+72,"HDFC Bank ATM, Market Yard, Mumbai",ATM,19.1339,72.8901,Mumbai,HDFC Bank
+73,"Axis Bank ATM, Station Road, Mumbai",ATM,18.9741,72.9696,Mumbai,Axis Bank
+74,"HDFC Bank ATM, Industrial Estate, Mumbai",ATM,19.0446,72.8903,Mumbai,HDFC Bank
+75,"Axis Bank ATM, MG Road, Mumbai",ATM,19.03,72.9735,Mumbai,Axis Bank
+76,"State Bank of India ATM, Ring Road, Mumbai",ATM,19.1197,72.9178,Mumbai,State Bank of India
+77,"ICICI Bank Branch, Bus Stand, Mumbai",Branch,19.1359,72.9799,Mumbai,ICICI Bank
+78,"HDFC Bank ATM, Airport Road, Mumbai",ATM,19.1506,72.9692,Mumbai,HDFC Bank
+79,"State Bank of India ATM, Lake View, Mumbai",ATM,19.1779,72.9455,Mumbai,State Bank of India
+80,"Axis Bank ATM, Civil Lines, Mumbai",ATM,18.9942,72.926,Mumbai,Axis Bank
+81,"Axis Bank ATM, Industrial Estate, Delhi",ATM,28.6971,77.0304,Delhi,Axis Bank
+82,"Axis Bank ATM, Civil Lines, Delhi",ATM,28.781,77.1916,Delhi,Axis Bank
+83,"HDFC Bank ATM, Fort Area, Delhi",ATM,28.6305,77.0613,Delhi,HDFC Bank
+84,"State Bank of India ATM, Old Town, Delhi",ATM,28.7381,77.0784,Delhi,State Bank of India
+85,"Punjab National Bank ATM, MG Road, Delhi",ATM,28.6118,77.2154,Delhi,Punjab National Bank
+86,"HDFC Bank ATM, MG Road, Delhi",ATM,28.6101,77.0868,Delhi,HDFC Bank
+87,"Bank of Baroda ATM, Tech Park, Delhi",ATM,28.7296,77.1052,Delhi,Bank of Baroda
+88,"Axis Bank ATM, Civil Lines, Delhi",ATM,28.5948,77.0872,Delhi,Axis Bank
+89,"Punjab National Bank ATM, Old Town, Delhi",ATM,28.6876,77.2102,Delhi,Punjab National Bank
+90,"ICICI Bank ATM, Fort Area, Delhi",ATM,28.7876,77.1552,Delhi,ICICI Bank
+91,"ICICI Bank ATM, Fort Area, Delhi",ATM,28.6821,77.0791,Delhi,ICICI Bank
+92,"ICICI Bank ATM, Ring Road, Delhi",ATM,28.685,77.2082,Delhi,ICICI Bank
+93,"Bank of Baroda ATM, Bus Stand, Delhi",ATM,28.7207,77.08,Delhi,Bank of Baroda
+94,"State Bank of India ATM, Civil Lines, Delhi",ATM,28.6345,77.1711,Delhi,State Bank of India
+95,"Punjab National Bank ATM, Junction, Delhi",ATM,28.6901,77.1447,Delhi,Punjab National Bank
+96,"Punjab National Bank Branch, Airport Road, Delhi",Branch,28.8004,77.1735,Delhi,Punjab National Bank
+97,"HDFC Bank ATM, Civil Lines, Delhi",ATM,28.7078,77.1344,Delhi,HDFC Bank
+98,"ICICI Bank ATM, Industrial Estate, Delhi",ATM,28.8126,77.0389,Delhi,ICICI Bank
+99,"ICICI Bank ATM, Airport Road, Delhi",ATM,28.6319,76.9884,Delhi,ICICI Bank
+100,"HDFC Bank Branch, Bus Stand, Delhi",Branch,28.788,77.0,Delhi,HDFC Bank
+101,"Axis Bank ATM, Lake View, Delhi",ATM,28.7512,77.1012,Delhi,Axis Bank
+102,"HDFC Bank ATM, Fort Area, Delhi",ATM,28.7491,77.1967,Delhi,HDFC Bank
+103,"State Bank of India Branch, Ring Road, Delhi",Branch,28.6263,77.2124,Delhi,State Bank of India
+104,"Punjab National Bank Branch, MG Road, Delhi",Branch,28.7179,77.2027,Delhi,Punjab National Bank
+105,"State Bank of India Branch, Market Yard, Delhi",Branch,28.7764,77.1427,Delhi,State Bank of India
+106,"Punjab National Bank ATM, Airport Road, Delhi",ATM,28.798,77.1295,Delhi,Punjab National Bank
+107,"Bank of Baroda Branch, Industrial Estate, Delhi",Branch,28.8017,77.0895,Delhi,Bank of Baroda
+108,"HDFC Bank Branch, Junction, Delhi",Branch,28.6463,77.0418,Delhi,HDFC Bank
+109,"Bank of Baroda ATM, Airport Road, Delhi",ATM,28.7707,77.0988,Delhi,Bank of Baroda
+110,"HDFC Bank ATM, Junction, Delhi",ATM,28.6027,77.0511,Delhi,HDFC Bank
+111,"ICICI Bank ATM, Old Town, Delhi",ATM,28.7984,77.0018,Delhi,ICICI Bank
+112,"HDFC Bank ATM, Tech Park, Delhi",ATM,28.7506,77.152,Delhi,HDFC Bank
+113,"State Bank of India Branch, Tech Park, Delhi",Branch,28.6635,77.0943,Delhi,State Bank of India
+114,"State Bank of India ATM, Industrial Estate, Delhi",ATM,28.6849,77.1997,Delhi,State Bank of India
+115,"Punjab National Bank ATM, Industrial Estate, Delhi",ATM,28.7955,77.1207,Delhi,Punjab National Bank
+116,"Axis Bank ATM, Old Town, Delhi",ATM,28.6558,77.0761,Delhi,Axis Bank
+117,"Axis Bank ATM, Junction, Delhi",ATM,28.6368,77.0871,Delhi,Axis Bank
+118,"State Bank of India Branch, Old Town, Delhi",Branch,28.7446,77.1741,Delhi,State Bank of India
+119,"Bank of Baroda ATM, Industrial Estate, Delhi",ATM,28.6963,77.0131,Delhi,Bank of Baroda
+120,"Punjab National Bank ATM, Central Plaza, Delhi",ATM,28.6787,77.118,Delhi,Punjab National Bank
+121,"State Bank of India ATM, Fort Area, Chennai",ATM,13.0656,80.3587,Chennai,State Bank of India
+122,"HDFC Bank ATM, Civil Lines, Chennai",ATM,13.0537,80.2015,Chennai,HDFC Bank
+123,"ICICI Bank ATM, Airport Road, Chennai",ATM,13.1738,80.2175,Chennai,ICICI Bank
+124,"Axis Bank ATM, Industrial Estate, Chennai",ATM,12.9824,80.1554,Chennai,Axis Bank
+125,"Punjab National Bank ATM, Old Town, Chennai",ATM,13.0165,80.1672,Chennai,Punjab National Bank
+126,"Bank of Baroda ATM, Airport Road, Chennai",ATM,12.9701,80.21,Chennai,Bank of Baroda
+127,"State Bank of India ATM, Ring Road, Chennai",ATM,12.993,80.3114,Chennai,State Bank of India
+128,"Punjab National Bank ATM, Junction, Chennai",ATM,13.1306,80.3348,Chennai,Punjab National Bank
+129,"HDFC Bank ATM, Airport Road, Chennai",ATM,13.1593,80.3822,Chennai,HDFC Bank
+130,"State Bank of India ATM, Central Plaza, Chennai",ATM,13.0376,80.3133,Chennai,State Bank of India
+131,"Axis Bank Branch, Lake View, Chennai",Branch,13.0103,80.2928,Chennai,Axis Bank
+132,"Bank of Baroda ATM, Station Road, Chennai",ATM,13.13,80.2231,Chennai,Bank of Baroda
+133,"Bank of Baroda ATM, Airport Road, Chennai",ATM,13.1988,80.3385,Chennai,Bank of Baroda
+134,"ICICI Bank Branch, Fort Area, Chennai",Branch,13.0516,80.2721,Chennai,ICICI Bank
+135,"ICICI Bank ATM, Industrial Estate, Chennai",ATM,13.0635,80.2683,Chennai,ICICI Bank
+136,"Axis Bank ATM, Fort Area, Chennai",ATM,13.1767,80.261,Chennai,Axis Bank
+137,"HDFC Bank Branch, Market Yard, Chennai",Branch,13.1388,80.3824,Chennai,HDFC Bank
+138,"ICICI Bank Branch, Junction, Chennai",Branch,13.0672,80.3261,Chennai,ICICI Bank
+139,"ICICI Bank ATM, Industrial Estate, Chennai",ATM,13.0216,80.375,Chennai,ICICI Bank
+140,"ICICI Bank Branch, Ring Road, Chennai",Branch,13.1428,80.2875,Chennai,ICICI Bank
+141,"Bank of Baroda Branch, Old Town, Chennai",Branch,12.9696,80.3549,Chennai,Bank of Baroda
+142,"HDFC Bank Branch, Ring Road, Chennai",Branch,13.0479,80.2127,Chennai,HDFC Bank
+143,"ICICI Bank ATM, Sector 12, Chennai",ATM,12.9651,80.3782,Chennai,ICICI Bank
+144,"State Bank of India ATM, Lake View, Chennai",ATM,13.0602,80.2839,Chennai,State Bank of India
+145,"HDFC Bank Branch, Fort Area, Chennai",Branch,13.1335,80.2583,Chennai,HDFC Bank
+146,"State Bank of India ATM, Civil Lines, Chennai",ATM,13.0159,80.3167,Chennai,State Bank of India
+147,"ICICI Bank ATM, Junction, Chennai",ATM,13.0955,80.2332,Chennai,ICICI Bank
+148,"Bank of Baroda ATM, Old Town, Chennai",ATM,13.1314,80.2157,Chennai,Bank of Baroda
+149,"ICICI Bank ATM, Station Road, Chennai",ATM,13.1358,80.2264,Chennai,ICICI Bank
+150,"Bank of Baroda ATM, Ring Road, Chennai",ATM,13.0146,80.2669,Chennai,Bank of Baroda
+151,"Bank of Baroda ATM, Station Road, Chennai",ATM,13.1625,80.2218,Chennai,Bank of Baroda
+152,"ICICI Bank ATM, Civil Lines, Chennai",ATM,12.9661,80.2789,Chennai,ICICI Bank
+153,"ICICI Bank ATM, MG Road, Chennai",ATM,13.0955,80.3181,Chennai,ICICI Bank
+154,"HDFC Bank Branch, Station Road, Chennai",Branch,13.1722,80.2885,Chennai,HDFC Bank
+155,"Axis Bank Branch, Junction, Chennai",Branch,13.0445,80.3824,Chennai,Axis Bank
+156,"ICICI Bank Branch, Station Road, Chennai",Branch,13.16,80.2469,Chennai,ICICI Bank
+157,"State Bank of India ATM, Market Yard, Chennai",ATM,12.9985,80.2858,Chennai,State Bank of India
+158,"ICICI Bank ATM, Ring Road, Chennai",ATM,12.9911,80.3342,Chennai,ICICI Bank
+159,"Punjab National Bank ATM, Airport Road, Chennai",ATM,13.0881,80.2588,Chennai,Punjab National Bank
+160,"Axis Bank ATM, Industrial Estate, Chennai",ATM,13.1039,80.2536,Chennai,Axis Bank
+161,"Punjab National Bank ATM, Bus Stand, Hyderabad",ATM,17.4954,78.3905,Hyderabad,Punjab National Bank
+162,"HDFC Bank ATM, Civil Lines, Hyderabad",ATM,17.4235,78.4044,Hyderabad,HDFC Bank
+163,"HDFC Bank ATM, Market Yard, Hyderabad",ATM,17.2656,78.4748,Hyderabad,HDFC Bank
+164,"Punjab National Bank Branch, Civil Lines, Hyderabad",Branch,17.2728,78.4358,Hyderabad,Punjab National Bank
+165,"ICICI Bank Branch, Station Road, Hyderabad",Branch,17.43,78.5884,Hyderabad,ICICI Bank
+166,"Bank of Baroda ATM, Tech Park, Hyderabad",ATM,17.2925,78.4207,Hyderabad,Bank of Baroda
+167,"HDFC Bank ATM, Industrial Estate, Hyderabad",ATM,17.2991,78.381,Hyderabad,HDFC Bank
+168,"ICICI Bank ATM, Junction, Hyderabad",ATM,17.2948,78.532,Hyderabad,ICICI Bank
+169,"Bank of Baroda Branch, Civil Lines, Hyderabad",Branch,17.3851,78.4852,Hyderabad,Bank of Baroda
+170,"State Bank of India ATM, Central Plaza, Hyderabad",ATM,17.3687,78.4441,Hyderabad,State Bank of India
+171,"ICICI Bank ATM, Station Road, Hyderabad",ATM,17.3199,78.5285,Hyderabad,ICICI Bank
+172,"Punjab National Bank ATM, Airport Road, Hyderabad",ATM,17.4263,78.4314,Hyderabad,Punjab National Bank
+173,"State Bank of India ATM, Junction, Hyderabad",ATM,17.3896,78.4728,Hyderabad,State Bank of India
+174,"ICICI Bank ATM, Bus Stand, Hyderabad",ATM,17.3696,78.5621,Hyderabad,ICICI Bank
+175,"State Bank of India Branch, Old Town, Hyderabad",Branch,17.363,78.4438,Hyderabad,State Bank of India
+176,"State Bank of India ATM, Old Town, Hyderabad",ATM,17.3638,78.4856,Hyderabad,State Bank of India
+177,"Bank of Baroda Branch, Industrial Estate, Hyderabad",Branch,17.4475,78.3755,Hyderabad,Bank of Baroda
+178,"State Bank of India ATM, Civil Lines, Hyderabad",ATM,17.3426,78.5995,Hyderabad,State Bank of India
+179,"Axis Bank ATM, Fort Area, Hyderabad",ATM,17.4736,78.4776,Hyderabad,Axis Bank
+180,"State Bank of India ATM, Sector 12, Hyderabad",ATM,17.3518,78.5482,Hyderabad,State Bank of India
+181,"Bank of Baroda Branch, Airport Road, Hyderabad",Branch,17.2774,78.4308,Hyderabad,Bank of Baroda
+182,"HDFC Bank ATM, Junction, Hyderabad",ATM,17.4764,78.483,Hyderabad,HDFC Bank
+183,"State Bank of India ATM, Lake View, Hyderabad",ATM,17.303,78.4989,Hyderabad,State Bank of India
+184,"Punjab National Bank Branch, Station Road, Hyderabad",Branch,17.3189,78.5686,Hyderabad,Punjab National Bank
+185,"State Bank of India Branch, Station Road, Hyderabad",Branch,17.4205,78.4037,Hyderabad,State Bank of India
+186,"Bank of Baroda ATM, Sector 12, Hyderabad",ATM,17.4343,78.4664,Hyderabad,Bank of Baroda
+187,"Axis Bank Branch, Ring Road, Hyderabad",Branch,17.3746,78.4014,Hyderabad,Axis Bank
+188,"HDFC Bank ATM, Industrial Estate, Hyderabad",ATM,17.2818,78.5521,Hyderabad,HDFC Bank
+189,"Axis Bank ATM, Central Plaza, Hyderabad",ATM,17.4541,78.4308,Hyderabad,Axis Bank
+190,"State Bank of India ATM, Lake View, Hyderabad",ATM,17.3367,78.5076,Hyderabad,State Bank of India
+191,"Bank of Baroda Branch, Industrial Estate, Hyderabad",Branch,17.3007,78.496,Hyderabad,Bank of Baroda
+192,"ICICI Bank ATM, Sector 12, Hyderabad",ATM,17.4481,78.4572,Hyderabad,ICICI Bank
+193,"ICICI Bank ATM, Lake View, Hyderabad",ATM,17.3223,78.4586,Hyderabad,ICICI Bank
+194,"Axis Bank ATM, Old Town, Hyderabad",ATM,17.4437,78.536,Hyderabad,Axis Bank
+195,"Axis Bank Branch, Fort Area, Hyderabad",Branch,17.4552,78.5232,Hyderabad,Axis Bank
+196,"HDFC Bank Branch, MG Road, Hyderabad",Branch,17.2953,78.5984,Hyderabad,HDFC Bank
+197,"ICICI Bank ATM, Industrial Estate, Hyderabad",ATM,17.4678,78.3906,Hyderabad,ICICI Bank
+198,"Axis Bank ATM, Lake View, Hyderabad",ATM,17.2996,78.5757,Hyderabad,Axis Bank
+199,"HDFC Bank ATM, Junction, Hyderabad",ATM,17.4526,78.4303,Hyderabad,HDFC Bank
+200,"Punjab National Bank Branch, Fort Area, Hyderabad",Branch,17.2843,78.4456,Hyderabad,Punjab National Bank
