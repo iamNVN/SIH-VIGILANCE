@@ -43,13 +43,22 @@ def split_by_complaint(df: pd.DataFrame, calib_fraction: float = 0.2, seed: int 
     return df[~is_calib], df[is_calib]
 
 
-def calibrate(fitted_model, feature_columns, df_calib: pd.DataFrame, method: str = "isotonic") -> CalibratedClassifierCV:
+# method="sigmoid" (Platt scaling), not "isotonic": isotonic is non-
+# parametric and needs a large calibration sample to produce a smooth
+# curve. Ours holds out ~20% of train COMPLAINTS (~110), ~4-5k candidate
+# rows but only ~110 positives -- too few for isotonic, which collapsed
+# into a handful of flat plateaus (many unrelated complaints landed on the
+# exact same output value, e.g. 0.0795, regardless of how different their
+# actual candidates were). Sigmoid fits a 2-parameter logistic curve
+# instead of a step function, which is the standard recommendation below
+# roughly 1000 calibration samples.
+def calibrate(fitted_model, feature_columns, df_calib: pd.DataFrame, method: str = "sigmoid") -> CalibratedClassifierCV:
     calibrated = CalibratedClassifierCV(estimator=FrozenEstimator(fitted_model), method=method)
     calibrated.fit(df_calib[feature_columns], df_calib["label"])
     return calibrated
 
 
-def fit_and_calibrate(fit_fn, df_train: pd.DataFrame, feature_columns, method: str = "isotonic", calib_fraction: float = 0.2, seed: int = 42):
+def fit_and_calibrate(fit_fn, df_train: pd.DataFrame, feature_columns, method: str = "sigmoid", calib_fraction: float = 0.2, seed: int = 42):
     """`fit_fn(df_subset, seed=...) -> fitted base model`, e.g. advanced_model.fit."""
     df_fit, df_calib = split_by_complaint(df_train, calib_fraction=calib_fraction, seed=seed)
     base_model = fit_fn(df_fit, seed=seed)
