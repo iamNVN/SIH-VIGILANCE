@@ -10,12 +10,18 @@ import { createContext, useContext, useEffect, useState } from "react";
  * surface (password storage, sessions, tokens) that would only add risk
  * before a live demo. Never present this as production security.
  */
+// `city` is the real, enforced access scope for investigators (see
+// api/complaints.py, stats.py, rings.py, feed.py -- all of them accept a
+// `city` filter and apply it server-side, not just in this UI). `null`
+// means unrestricted -- both administrator personas are national/state-level
+// oversight roles, not tied to one city's cell.
 export const PERSONAS = [
   {
     id: "investigator-1",
     name: "Insp. Ananya Iyer",
     role: "investigator",
     unit: "Bengaluru Cyber Cell",
+    city: "Bengaluru",
     initials: "AI",
   },
   {
@@ -23,6 +29,7 @@ export const PERSONAS = [
     name: "Insp. Rahul Verma",
     role: "investigator",
     unit: "Chennai Cyber Cell",
+    city: "Chennai",
     initials: "RV",
   },
   {
@@ -30,6 +37,7 @@ export const PERSONAS = [
     name: "Priya Nair",
     role: "administrator",
     unit: "I4C TAU Analyst",
+    city: null,
     initials: "PN",
   },
   {
@@ -37,6 +45,7 @@ export const PERSONAS = [
     name: "Vikram Singh",
     role: "administrator",
     unit: "State Cyber Cell Admin",
+    city: null,
     initials: "VS",
   },
 ];

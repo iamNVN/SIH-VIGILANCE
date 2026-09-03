@@ -11,20 +11,20 @@ export default {
       colors: {
         // Dark-surface neutrals (validated dataviz palette -- references/palette.md)
         surface: {
-          page: "#0d0d0d",
-          raised: "#161615",
-          card: "#1a1a19",
-          hover: "#232322",
-          border: "rgba(255,255,255,0.10)",
+          page: "#0b1120",
+          raised: "#0b1120",
+          card: "#111827",
+          hover: "#1f2937",
+          border: "rgba(255,255,255,0.08)",
         },
         ink: {
           primary: "#ffffff",
-          secondary: "#c3c2b7",
-          muted: "#898781",
+          secondary: "#9ca3af",
+          muted: "#6b7280",
         },
         // Categorical series (fixed order -- never reassign/cycle)
         series: {
-          1: "#3987e5", // blue
+          1: "#3b82f6", // blue
           2: "#d95926", // orange
           3: "#199e70", // aqua
           4: "#c98500", // yellow

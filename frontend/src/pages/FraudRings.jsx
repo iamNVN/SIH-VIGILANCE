@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { useAuth } from "../auth/AuthContext";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
 
@@ -96,7 +97,9 @@ function RingCard({ ring, index }) {
 }
 
 export default function FraudRings() {
-  const { data, error, loading } = useApi((signal) => api.rings(50, signal), []);
+  const { user } = useAuth();
+  const city = user?.city || null;
+  const { data, error, loading } = useApi((signal) => api.rings(50, city, signal), [city]);
   const rings = data?.rings || [];
 
   const totals = rings.reduce(
@@ -111,7 +114,12 @@ export default function FraudRings() {
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink-primary">Fraud Rings</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink-primary">Fraud Rings</h1>
+          <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
+            {city ? `Touching ${city}` : "All India"}
+          </span>
+        </div>
         <p className="text-sm text-ink-muted">
           Clusters of accounts discovered by the graph engine (Louvain community detection) that are moving money
           together across multiple complaints -- the strongest signal that a case isn't a lone actor.

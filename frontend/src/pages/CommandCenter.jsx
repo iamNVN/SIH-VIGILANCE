@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { useAuth } from "../auth/AuthContext";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { StatusPill } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
@@ -42,11 +43,13 @@ const PAGE_SIZE = 10;
 
 export default function CommandCenter() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const city = user?.city || null;
   const [page, setPage] = useState(0);
-  const { data: stats, loading: statsLoading, reload: reloadStats } = useApi((signal) => api.stats(signal), []);
+  const { data: stats, loading: statsLoading, reload: reloadStats } = useApi((signal) => api.stats(city, signal), [city]);
   const { data: complaints, error, loading, reload } = useApi(
-    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, "", signal),
-    [page]
+    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, "", city, signal),
+    [page, city]
   );
   const [triggering, setTriggering] = useState(false);
   const [flash, setFlash] = useState(null);
@@ -82,7 +85,12 @@ export default function CommandCenter() {
     <div className="mx-auto max-w-6xl px-8 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
+            <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
+              {city ? `${city} only` : "All India"}
+            </span>
+          </div>
           <p className="text-sm text-ink-muted">Live overview of incoming complaints and detected fraud rings.</p>
         </div>
         <div className="flex gap-2">

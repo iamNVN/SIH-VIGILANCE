@@ -6,6 +6,8 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # --- Virtual environments ---
 venv/
@@ -20,11 +22,16 @@ backend/app/ml/artifacts/*.csv
 backend/app/ml/artifacts/evaluation_report.json
 backend/app/ml/artifacts/metadata.json
 
-# --- Frontend (once it exists) ---
+# --- Frontend ---
 frontend/node_modules/
 frontend/dist/
 frontend/build/
+frontend/.vite/
 node_modules/
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # --- Env / secrets ---
 .env
@@ -37,9 +44,14 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.swo
 
 # --- Docker ---
 *.pid
+
+# --- Claude Code local state (machine-specific, not shared config) ---
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
 
 # --- Demo artifacts (large binaries, not source) ---
 backup_demo.mp4

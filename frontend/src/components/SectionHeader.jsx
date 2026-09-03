@@ -11,8 +11,7 @@ const BAR_COLOR = {
 export default function SectionHeader({ color = "series-1", children, action }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-primary">
-        <span className={`h-3.5 w-1 rounded-full ${BAR_COLOR[color] || BAR_COLOR["series-1"]}`} />
+      <h3 className="flex items-center text-sm font-semibold text-ink-primary">
         {children}
       </h3>
       {action}

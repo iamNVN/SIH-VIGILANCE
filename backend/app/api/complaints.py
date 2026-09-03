@@ -32,13 +32,18 @@ def _to_out(complaint: Complaint) -> ComplaintOut:
     )
 
 
-@router.get("", response_model=list[ComplaintOut])
-def list_complaints(skip: int = 0, limit: int = 50, q: Optional[str] = None, db: Session = Depends(get_db)):
-    limit = min(limit, 200)
-    stmt = select(Complaint).options(joinedload(Complaint.victim))
+def _filtered(stmt, q: Optional[str], city: Optional[str]):
+    """`city` is a hard AND filter (an investigator's jurisdiction scope --
+    see stats.py's docstring); `q` is a free-text OR search within that
+    scope. Both join Victim, so the join happens once regardless of which
+    filters are active."""
+    if q or city:
+        stmt = stmt.join(Victim)
+    if city:
+        stmt = stmt.where(Victim.city == city)
     if q:
         needle = f"%{q.strip()}%"
-        stmt = stmt.join(Victim).where(
+        stmt = stmt.where(
             or_(
                 Victim.name_fake.ilike(needle),
                 Victim.city.ilike(needle),
@@ -46,23 +51,22 @@ def list_complaints(skip: int = 0, limit: int = 50, q: Optional[str] = None, db:
                 Complaint.id == (int(q) if q.strip().isdigit() else -1),
             )
         )
+    return stmt
+
+
+@router.get("", response_model=list[ComplaintOut])
+def list_complaints(
+    skip: int = 0, limit: int = 50, q: Optional[str] = None, city: Optional[str] = None, db: Session = Depends(get_db)
+):
+    limit = min(limit, 200)
+    stmt = _filtered(select(Complaint).options(joinedload(Complaint.victim)), q, city)
     rows = db.execute(stmt.order_by(Complaint.filed_at.desc()).offset(skip).limit(limit)).scalars().all()
     return [_to_out(r) for r in rows]
 
 
 @router.get("/count")
-def count_complaints(q: Optional[str] = None, db: Session = Depends(get_db)):
-    stmt = select(Complaint)
-    if q:
-        needle = f"%{q.strip()}%"
-        stmt = stmt.join(Victim).where(
-            or_(
-                Victim.name_fake.ilike(needle),
-                Victim.city.ilike(needle),
-                Complaint.bank_name.ilike(needle),
-                Complaint.id == (int(q) if q.strip().isdigit() else -1),
-            )
-        )
+def count_complaints(q: Optional[str] = None, city: Optional[str] = None, db: Session = Depends(get_db)):
+    stmt = _filtered(select(Complaint), q, city)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     return {"total": total}
 

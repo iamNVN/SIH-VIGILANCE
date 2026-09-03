@@ -7,54 +7,73 @@ Community detection over the full current graph takes a second or two
 so the result is cached for a short window. This endpoint is deliberately
 cheap and simple: the frontend just displays these numbers, no client-side
 computation.
+
+Accepts an optional `city` filter -- this is what makes an investigator's
+Command Center actually show THEIR jurisdiction's numbers instead of the
+national total (see auth/AuthContext.jsx's per-persona `city`). Enforced
+here server-side, not just hidden in the UI, so it's a real scope rather
+than a cosmetic one -- though see that file's docstring: the persona itself
+is still self-declared, not authenticated, so this is jurisdiction-scoped
+DATA ACCESS for a demo, not production-grade security.
 """
 
 import time
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from core import dataset_provider
 from core.db import get_db
-from graph_engine.build_graph import build_graph
-from graph_engine.community import community_sizes, detect_communities
 from models import Complaint, Victim
+
+from .rings import _cached_rings
 
 router = APIRouter(tags=["stats"])
 
 _CACHE_TTL_SECONDS = 30
-_cache = {"computed_at": 0.0, "active_rings": 0, "largest_ring_size": 0}
+_ring_cache = {"computed_at": 0.0, "active": 0, "largest": 0}
 
 
-def _active_rings():
+def _active_rings_all():
     now = time.time()
-    if now - _cache["computed_at"] < _CACHE_TTL_SECONDS:
-        return _cache["active_rings"], _cache["largest_ring_size"]
+    if now - _ring_cache["computed_at"] < _CACHE_TTL_SECONDS:
+        return _ring_cache["active"], _ring_cache["largest"]
 
-    ds = dataset_provider.get_dataset()
-    G = build_graph(ds.accounts, ds.transactions, ds.withdrawal_points, ds.withdrawal_events, as_of=None)
-    sizes = community_sizes(detect_communities(G))
-    active = [s for s in sizes.values() if s >= 3]  # a "ring" needs at least a couple of linked accounts, not a lone pair
-
-    _cache.update({
+    rings = _cached_rings()
+    _ring_cache.update({
         "computed_at": now,
-        "active_rings": len(active),
-        "largest_ring_size": max(active) if active else 0,
+        "active": len(rings),
+        "largest": max((r["size"] for r in rings), default=0),
     })
-    return _cache["active_rings"], _cache["largest_ring_size"]
+    return _ring_cache["active"], _ring_cache["largest"]
+
+
+def _active_rings_for_city(city: str):
+    rings = [r for r in _cached_rings() if city in r["cities_touched"]]
+    return len(rings), max((r["size"] for r in rings), default=0)
 
 
 @router.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
-    total_complaints = db.execute(select(func.count(Complaint.id))).scalar_one()
-    total_victims = db.execute(select(func.count(Victim.id))).scalar_one()
-    total_amount_at_risk = db.execute(
-        select(func.coalesce(func.sum(Complaint.amount_lost), 0.0)).where(Complaint.status == "open")
-    ).scalar_one()
-    open_count = db.execute(select(func.count(Complaint.id)).where(Complaint.status == "open")).scalar_one()
+def get_stats(city: Optional[str] = None, db: Session = Depends(get_db)):
+    count_stmt = select(func.count(Complaint.id))
+    amount_stmt = select(func.coalesce(func.sum(Complaint.amount_lost), 0.0)).where(Complaint.status == "open")
+    open_stmt = select(func.count(Complaint.id)).where(Complaint.status == "open")
+    if city:
+        count_stmt = count_stmt.join(Victim).where(Victim.city == city)
+        amount_stmt = amount_stmt.join(Victim).where(Victim.city == city)
+        open_stmt = open_stmt.join(Victim).where(Victim.city == city)
 
-    active_rings, largest_ring_size = _active_rings()
+    total_complaints = db.execute(count_stmt).scalar_one()
+    open_count = db.execute(open_stmt).scalar_one()
+    total_amount_at_risk = db.execute(amount_stmt).scalar_one()
+
+    if city:
+        total_victims = db.execute(select(func.count(Victim.id)).where(Victim.city == city)).scalar_one()
+        active_rings, largest_ring_size = _active_rings_for_city(city)
+    else:
+        total_victims = db.execute(select(func.count(Victim.id))).scalar_one()
+        active_rings, largest_ring_size = _active_rings_all()
 
     return {
         "total_complaints": total_complaints,
@@ -63,4 +82,5 @@ def get_stats(db: Session = Depends(get_db)):
         "total_amount_at_risk": total_amount_at_risk,
         "suspected_active_rings": active_rings,
         "largest_ring_size": largest_ring_size,
+        "scope": city or "national",
     }

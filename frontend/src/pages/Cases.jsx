@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { useAuth } from "../auth/AuthContext";
 import { StatusPill } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
 
@@ -21,22 +22,29 @@ const PAGE_SIZE = 15;
 
 export default function Cases() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const city = user?.city || null;
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
 
   const { data: complaints, error, loading } = useApi(
-    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, query, signal),
-    [page, query]
+    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, query, city, signal),
+    [page, query, city]
   );
-  const { data: countData } = useApi((signal) => api.countComplaints(query, signal), [query]);
+  const { data: countData } = useApi((signal) => api.countComplaints(query, city, signal), [query, city]);
   const total = countData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink-primary">Cases</h1>
-        <p className="text-sm text-ink-muted">Search and browse every complaint on file.</p>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink-primary">Cases</h1>
+          <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
+            {city ? `${city} only` : "All India"}
+          </span>
+        </div>
+        <p className="text-sm text-ink-muted">Search and browse every complaint {city ? `in ${city}` : "on file"}.</p>
       </div>
 
       <div className="mb-4 flex items-center gap-2 rounded-md border border-surface-border bg-surface-card px-3 py-2.5">

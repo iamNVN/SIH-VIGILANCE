@@ -71,6 +71,75 @@ def random_ifsc(rng, bank_code):
     return f"{bank_code}0{branch}"
 
 
+# Real, well-known neighborhoods per city, with real approximate coordinates
+# -- all well inland of any coastline. Withdrawal points are placed at these
+# named localities (see generate_withdrawal_points) instead of being
+# randomly jittered around a single city-center point, which for coastal
+# cities kept landing in the sea regardless of how the jitter box was tuned.
+AREAS_BY_CITY = {
+    "Bengaluru": [
+        ("Koramangala", 12.9352, 77.6245),
+        ("Indiranagar", 12.9719, 77.6412),
+        ("Whitefield", 12.9698, 77.7500),
+        ("Jayanagar", 12.9308, 77.5838),
+        ("Malleswaram", 13.0034, 77.5709),
+        ("HSR Layout", 12.9121, 77.6446),
+        ("Electronic City", 12.8452, 77.6602),
+        ("Marathahalli", 12.9569, 77.6974),
+        ("Rajajinagar", 12.9991, 77.5554),
+        ("Banashankari", 12.9255, 77.5468),
+    ],
+    "Mumbai": [
+        ("Andheri", 19.1136, 72.8697),
+        ("Bandra", 19.0596, 72.8295),
+        ("Borivali", 19.2307, 72.8567),
+        ("Dadar", 19.0178, 72.8478),
+        ("Powai", 19.1176, 72.9060),
+        ("Thane", 19.2183, 72.9781),
+        ("Malad", 19.1864, 72.8493),
+        ("Ghatkopar", 19.0864, 72.9081),
+        ("Kurla", 19.0728, 72.8826),
+        ("Vikhroli", 19.1079, 72.9250),
+    ],
+    "Delhi": [
+        ("Connaught Place", 28.6315, 77.2167),
+        ("Karol Bagh", 28.6519, 77.1909),
+        ("Dwarka", 28.5921, 77.0460),
+        ("Saket", 28.5245, 77.2066),
+        ("Rohini", 28.7495, 77.0565),
+        ("Lajpat Nagar", 28.5677, 77.2436),
+        ("Vasant Kunj", 28.5200, 77.1591),
+        ("Pitampura", 28.6942, 77.1310),
+        ("Janakpuri", 28.6219, 77.0878),
+        ("Mayur Vihar", 28.6096, 77.2951),
+    ],
+    "Chennai": [
+        ("T Nagar", 13.0418, 80.2341),
+        ("Anna Nagar", 13.0850, 80.2101),
+        ("Adyar", 13.0012, 80.2565),
+        ("Velachery", 12.9756, 80.2207),
+        ("Tambaram", 12.9249, 80.1000),
+        ("Guindy", 13.0067, 80.2206),
+        ("Mylapore", 13.0339, 80.2619),
+        ("Porur", 13.0381, 80.1565),
+        ("Ashok Nagar", 13.0381, 80.2110),
+        ("Kodambakkam", 13.0524, 80.2249),
+    ],
+    "Hyderabad": [
+        ("Banjara Hills", 17.4156, 78.4347),
+        ("Jubilee Hills", 17.4326, 78.4071),
+        ("Gachibowli", 17.4401, 78.3489),
+        ("Secunderabad", 17.4399, 78.4983),
+        ("Kukatpally", 17.4849, 78.4138),
+        ("Madhapur", 17.4483, 78.3915),
+        ("Ameerpet", 17.4374, 78.4487),
+        ("Dilsukhnagar", 17.3687, 78.5247),
+        ("Uppal", 17.4058, 78.5590),
+        ("LB Nagar", 17.3457, 78.5527),
+    ],
+}
+
+
 NARRATIVE_TEMPLATES = [
     "I received a call claiming to be from {bank} customer support and was asked "
     "to share an OTP. Rs {amount} was debited from my account without my consent. "
@@ -131,22 +200,25 @@ class Generator:
     # Step 1: seed withdrawal points (ATMs/branches) per city
     # --------------------------------------------------------------------
     def generate_withdrawal_points(self, per_city=40):
-        area_names = ["MG Road", "Station Road", "Market Yard", "Ring Road",
-                      "Civil Lines", "Old Town", "Tech Park", "Junction",
-                      "Sector 12", "Bus Stand", "Fort Area", "Lake View",
-                      "Airport Road", "Industrial Estate", "Central Plaza"]
+        # Real, well-known localities per city with real approximate
+        # coordinates -- NOT random jitter around a city-center point.
+        # Jittering within a fixed-radius box around one center coordinate
+        # doesn't respect an actual (irregular, curving) coastline, and for
+        # coastal cities (Chennai, Mumbai) kept placing points in the sea no
+        # matter how the box was tuned -- confirmed on the live map. Real
+        # named neighborhoods, all well inland of any coastline, sidestep
+        # the problem entirely instead of trying to patch the box shape.
         for city in self.cities:
+            areas = AREAS_BY_CITY[city["name"]]
             for i in range(per_city):
                 bank = self.rng.choice(self.banks)
                 kind = self.rng.choice(["ATM", "ATM", "ATM", "Branch"])  # ATMs more common
-                area = self.rng.choice(area_names)
-                # jitter lat/lon within roughly a 15km radius of city center
-                # (some cities override this range in rings_config.yaml to
-                # stay clear of the coastline -- see lat_jitter/lon_jitter)
-                lat_min, lat_max = city.get("lat_jitter", [-0.12, 0.12])
-                lon_min, lon_max = city.get("lon_jitter", [-0.12, 0.12])
-                lat = city["lat"] + self.rng.uniform(lat_min, lat_max)
-                lon = city["lon"] + self.rng.uniform(lon_min, lon_max)
+                area, area_lat, area_lon = self.rng.choice(areas)
+                # A small jitter (~300-400m) so multiple points in the same
+                # named area aren't pixel-identical on the map, without
+                # drifting far enough to leave a real, verified locality.
+                lat = area_lat + self.rng.uniform(-0.003, 0.003)
+                lon = area_lon + self.rng.uniform(-0.003, 0.003)
                 self.withdrawal_points.append({
                     "id": self._next_id("withdrawal_point"),
                     "name": f"{bank['name']} {kind}, {area}, {city['name']}",

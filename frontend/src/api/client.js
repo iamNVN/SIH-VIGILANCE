@@ -19,13 +19,23 @@ async function request(path, options = {}) {
   return res.json();
 }
 
+function qs(params) {
+  const parts = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+  return parts.length ? `?${parts.join("&")}` : "";
+}
+
 export const api = {
   health: () => request("/health"),
   systemInfo: (signal) => request("/system/info", { signal }),
-  stats: (signal) => request("/stats", { signal }),
-  listComplaints: (limit = 50, skip = 0, q = "", signal) =>
-    request(`/complaints?limit=${limit}&skip=${skip}${q ? `&q=${encodeURIComponent(q)}` : ""}`, { signal }),
-  countComplaints: (q = "", signal) => request(`/complaints/count${q ? `?q=${encodeURIComponent(q)}` : ""}`, { signal }),
+  // `city` scopes every one of these to an investigator's jurisdiction --
+  // enforced server-side (see backend/app/api/*.py), not just a display
+  // filter. `null`/omitted city (administrators) means unrestricted.
+  stats: (city, signal) => request(`/stats${qs({ city })}`, { signal }),
+  listComplaints: (limit = 50, skip = 0, q = "", city, signal) =>
+    request(`/complaints${qs({ limit, skip, q, city })}`, { signal }),
+  countComplaints: (q = "", city, signal) => request(`/complaints/count${qs({ q, city })}`, { signal }),
   getComplaint: (id, signal) => request(`/complaints/${id}`, { signal }),
   createComplaint: (payload) =>
     request("/complaints", { method: "POST", body: JSON.stringify(payload) }),
@@ -36,9 +46,9 @@ export const api = {
   graph: (id, hops = 2, signal) => request(`/graph/${id}?hops=${hops}`, { signal }),
   brief: (id, signal) => request(`/brief/${id}`, { signal }),
   evaluation: (signal) => request("/evaluation", { signal }),
-  rings: (limit = 50, signal) => request(`/rings?limit=${limit}`, { signal }),
-  predictionsFeed: (limit = 40, signal) => request(`/feed/predictions?limit=${limit}`, { signal }),
-  alertsFeed: (limit = 40, signal) => request(`/feed/alerts?limit=${limit}`, { signal }),
+  rings: (limit = 50, city, signal) => request(`/rings${qs({ limit, city })}`, { signal }),
+  predictionsFeed: (limit = 40, city, signal) => request(`/feed/predictions${qs({ limit, city })}`, { signal }),
+  alertsFeed: (limit = 40, city, signal) => request(`/feed/alerts${qs({ limit, city })}`, { signal }),
   triggerNext: () => request("/stream/trigger-next", { method: "POST" }),
   resetStream: () => request("/stream/reset", { method: "POST" }),
 };

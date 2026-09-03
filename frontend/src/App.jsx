@@ -35,7 +35,14 @@ export default function App() {
             <Route path="/rings" element={<FraudRings />} />
             <Route path="/predictions" element={<Predictions />} />
             <Route path="/alerts" element={<Alerts />} />
-            <Route path="/analytics" element={<Analytics />} />
+            <Route
+              path="/analytics"
+              element={
+                <ProtectedRoute roles={["administrator"]}>
+                  <Analytics />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/settings" element={<Settings />} />
 
             <Route path="/cases/:id" element={<CaseWorkspace />}>

@@ -1,10 +1,9 @@
-import { ArrowRight, Hash, IndianRupee, Landmark, Map as MapIcon, Tag } from "lucide-react";
+import { ArrowRight, Hash, IndianRupee, Landmark, Tag } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import { AccordionItem } from "../../components/Accordion";
 import { api } from "../../api/client";
 import { useApi } from "../../api/useApi";
-import CashOutMap from "../../components/CashOutMap";
 import SectionHeader from "../../components/SectionHeader";
 import { EmptyState, ErrorState, LoadingSpinner } from "../../components/StateViews";
 
@@ -56,8 +55,7 @@ function EntityRow({ icon: Icon, label, children }) {
 }
 
 export default function Overview() {
-  const { complaint, prediction } = useOutletContext();
-  const navigate = useNavigate();
+  const { complaint } = useOutletContext();
   const entities = complaint.extracted_entities || {};
   const [showAllLinked, setShowAllLinked] = useState(false);
   const { data: related, loading: relatedLoading, error: relatedError } = useApi(
@@ -67,13 +65,14 @@ export default function Overview() {
 
   const complaintCode = `CMP-${new Date(complaint.filed_at).getFullYear()}-${String(complaint.id).padStart(6, "0")}`;
   const visibleLinked = related ? (showAllLinked ? related.related : related.related.slice(0, LINKED_PREVIEW_COUNT)) : [];
-  const top5 = prediction?.predictions?.slice(0, 5) || [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr_1.1fr]">
-      <div className="card p-5">
-        <SectionHeader>Victim Narrative</SectionHeader>
-        <p className="leading-relaxed text-ink-primary">{highlightNarrative(complaint.narrative_text, entities)}</p>
+    <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.5fr_1fr]">
+      <div className="flex flex-col">
+        <div>
+          <SectionHeader>Victim Narrative</SectionHeader>
+          <p className="leading-relaxed text-ink-primary">{highlightNarrative(complaint.narrative_text, entities)}</p>
+        </div>
 
         <div className="mt-6 border-t border-surface-border pt-5">
           <SectionHeader>Linked Complaints</SectionHeader>
@@ -128,7 +127,7 @@ export default function Overview() {
         </div>
       </div>
 
-      <div className="card p-5">
+      <div className="rounded-xl border border-surface-border p-5">
         <SectionHeader>Extracted Entities</SectionHeader>
         <div>
           <EntityRow icon={Landmark} label="Bank">
@@ -149,36 +148,6 @@ export default function Overview() {
             <span className="id-tag">{complaintCode}</span>
           </EntityRow>
         </div>
-      </div>
-
-      <div className="card p-5">
-        <SectionHeader color="series-2">Top 5 Predicted Locations</SectionHeader>
-        {top5.length > 0 ? (
-          <>
-            <div className="mb-3 overflow-hidden rounded-md">
-              <CashOutMap predictions={top5} height={160} />
-            </div>
-            <ul className="space-y-1">
-              {top5.map((p) => (
-                <li key={p.withdrawal_point_id} className="flex items-center gap-2 py-1.5 text-xs">
-                  <span className="id-tag flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-white/10 text-[10px] font-bold text-ink-muted">
-                    {p.rank}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-ink-secondary">{p.name}</span>
-                  <span className="id-tag shrink-0 font-semibold text-series-2">{Math.round(p.confidence * 100)}%</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => navigate("../map")}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-series-2/40 bg-series-2/10 px-3 py-2 text-xs font-medium text-series-2 hover:bg-series-2/20"
-            >
-              <MapIcon className="h-3.5 w-3.5" strokeWidth={2} /> View Full Map
-            </button>
-          </>
-        ) : (
-          <LoadingSpinner label="Scoring locations…" />
-        )}
       </div>
     </div>
   );

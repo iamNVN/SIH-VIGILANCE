@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
+import { useAuth } from "../auth/AuthContext";
 import { ConfidenceBadge, UrgencyBadge } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
 import { confidenceContext } from "../utils/confidence";
@@ -12,13 +13,20 @@ function money(n) {
 
 export default function Predictions() {
   const navigate = useNavigate();
-  const { data, error, loading } = useApi((signal) => api.predictionsFeed(40, signal), []);
+  const { user } = useAuth();
+  const city = user?.city || null;
+  const { data, error, loading } = useApi((signal) => api.predictionsFeed(40, city, signal), [city]);
   const items = data?.items || [];
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-ink-primary">Predictions</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink-primary">Predictions</h1>
+          <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
+            {city ? `${city} only` : "All India"}
+          </span>
+        </div>
         <p className="text-sm text-ink-muted">
           The top cash-out call across every open case right now, ranked by how much better than random chance it is.
         </p>

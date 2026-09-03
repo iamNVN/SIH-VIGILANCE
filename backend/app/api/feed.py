@@ -8,6 +8,7 @@ briefly like /stats and /rings.
 """
 
 import time
+from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -44,7 +45,7 @@ def _lift_urgency(confidence: float, n_candidates: int) -> str:
     return "LOW"
 
 
-def _compute_feed(limit_complaints: int = 40):
+def _compute_feed(limit_complaints: int = 150):
     if not registry.ready:
         raise HTTPException(503, "models not trained yet -- run `python -m ml.train` first")
 
@@ -115,11 +116,17 @@ def _cached_feed():
 
 
 @router.get("/feed/predictions")
-def predictions_feed(limit: int = 40):
-    return {"items": _cached_feed()[: min(limit, 100)]}
+def predictions_feed(limit: int = 40, city: Optional[str] = None):
+    items = _cached_feed()
+    if city:
+        items = [it for it in items if it["victim_city"] == city]
+    return {"items": items[: min(limit, 100)]}
 
 
 @router.get("/feed/alerts")
-def alerts_feed(limit: int = 40):
-    high = [it for it in _cached_feed() if it["top_prediction"]["urgency"] == "HIGH"]
+def alerts_feed(limit: int = 40, city: Optional[str] = None):
+    items = _cached_feed()
+    if city:
+        items = [it for it in items if it["victim_city"] == city]
+    high = [it for it in items if it["top_prediction"]["urgency"] == "HIGH"]
     return {"items": high[: min(limit, 100)]}

@@ -9,6 +9,7 @@ active right now" view, distinct from a single case's own investigation.
 
 import time
 from collections import Counter
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -58,6 +59,7 @@ def _compute_rings():
             if pid in wpoints_by_id.index
         ]
         top_city = Counter(cities).most_common(1)[0][0] if cities else None
+        cities_touched = sorted(set(cities))
 
         banks = [
             accounts_by_id.loc[aid, "bank_name"]
@@ -79,6 +81,7 @@ def _compute_rings():
             "num_complaints": len(complaint_ids),
             "total_amount_at_risk": total_amount,
             "top_city": top_city,
+            "cities_touched": cities_touched,
             "top_bank": top_bank,
             "last_activity": last_activity.isoformat() if last_activity is not None else None,
             "sample_complaint_id": complaint_ids[0],
@@ -98,8 +101,11 @@ def _cached_rings():
 
 
 @router.get("/rings")
-def list_rings(limit: int = 50):
-    return {"rings": _cached_rings()[: min(limit, 200)]}
+def list_rings(limit: int = 50, city: Optional[str] = None):
+    rings = _cached_rings()
+    if city:
+        rings = [r for r in rings if city in r["cities_touched"]]
+    return {"rings": rings[: min(limit, 200)]}
 
 
 @router.get("/rings/{community_id}")

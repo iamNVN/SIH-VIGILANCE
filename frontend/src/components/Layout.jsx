@@ -13,13 +13,20 @@ import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
+// Role actually gates two different things here: which PAGES show up at
+// all (Reports is administrator-only -- model/evaluation oversight isn't an
+// investigator task), and, on the pages both roles share, how much DATA
+// they see (every investigator persona carries a `city` in AuthContext;
+// every list/stat/feed endpoint enforces it server-side -- see api/client.js
+// and the FastAPI routes it calls). Administrators have `city: null`, so
+// they see every jurisdiction nationally.
 const NAV_ITEMS = [
   { to: "/", label: "Command Center", icon: Home, roles: ["investigator", "administrator"] },
   { to: "/cases", label: "Cases", icon: Folder, roles: ["investigator", "administrator"] },
   { to: "/rings", label: "Network Graph", icon: Share2, roles: ["investigator", "administrator"] },
   { to: "/predictions", label: "Predictions", icon: Target, roles: ["investigator", "administrator"] },
   { to: "/alerts", label: "Alerts", icon: Bell, roles: ["investigator", "administrator"] },
-  { to: "/analytics", label: "Reports", icon: FileText, roles: ["investigator", "administrator"] },
+  { to: "/analytics", label: "Reports", icon: FileText, roles: ["administrator"] },
   { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["investigator", "administrator"] },
 ];
 
@@ -59,7 +66,7 @@ export default function Layout() {
                   end={item.to === "/"}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${
-                      isActive ? "bg-series-1/20 text-series-1" : "text-ink-secondary hover:bg-white/5 hover:text-ink-primary"
+                      isActive ? "bg-series-1 text-white" : "text-ink-secondary hover:bg-white/5 hover:text-ink-primary"
                     }`
                   }
                 >

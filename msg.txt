@@ -1,0 +1,1 @@
+Backend complete: generator, graph engine, ML pipeline, FastAPI app. Precision@5 0.121->0.530 vs baseline.
