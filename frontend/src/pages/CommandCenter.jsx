@@ -141,14 +141,19 @@ export default function CommandCenter() {
     reloadStreamStatus();
   };
 
-  // The Live Investigation Feed is meant to feel like it's actually
-  // running, not just refresh on Simulate Complaint -- a real prediction or
-  // decision made elsewhere (another investigator's tab, in a real
-  // deployment) should show up here without the viewer doing anything.
+  // Command Center is meant to feel like it's actually running, not just
+  // refresh on Simulate Complaint -- core/activity_simulator.py injects
+  // real complaints/predictions in the background on its own schedule
+  // (see Settings' "Inject Live Cases"), which is a real DB write that
+  // should move Total Complaints/High Risk Cases/hotspots/rings here
+  // without the viewer manually reloading the page. Polling everything,
+  // not just the event feed -- a real stat/table lagging behind the very
+  // events describing that change is its own kind of "not live".
   useEffect(() => {
-    const t = setInterval(reloadEvents, 6000);
+    const t = setInterval(reloadEverything, 8000);
     return () => clearInterval(t);
-  }, [reloadEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -207,7 +212,7 @@ export default function CommandCenter() {
   return (
     <div className="mx-auto max-w-7xl px-8 py-8">
       {/* Header: title/subtitle left, live status + actions right */}
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
@@ -343,8 +348,8 @@ export default function CommandCenter() {
           (0→4→3→0→4→0→2) didn't communicate anything -- these two panels
           are directly about the same cash-out intelligence the rest of
           this screen is for. */}
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card p-5">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="card lg:col-span-2  p-5">
           <div className="mb-1 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-series-1/15">
@@ -379,7 +384,7 @@ export default function CommandCenter() {
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1.3fr_1fr]">
                 <div>
-                  <CashOutMap predictions={hotspotPredictions} height={240} hideLegend />
+                  <CashOutMap predictions={hotspotPredictions} height={280} hideLegend />
                   <p className="mt-2 text-[11px] text-ink-muted">Larger circle = higher probability</p>
                   <div className="mt-2 border-t border-surface-border pt-2">
                     <CashOutMapLegend />
@@ -387,8 +392,8 @@ export default function CommandCenter() {
                 </div>
 
                 <div className="flex flex-col">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Top Predicted Locations</h3>
-                  <ul className="flex-1 space-y-2">
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Top Predicted Locations</h3>
+                  <ul className="flex-1 space-y-3">
                     {hotspots.map((h, i) => {
                       const urgency = hotspotPredictions[i]?.urgency;
                       const color = URGENCY_COLOR[urgency] || URGENCY_COLOR.LOW;
@@ -397,13 +402,13 @@ export default function CommandCenter() {
                       return (
                         <li key={h.name} className="flex items-center gap-2.5">
                           <span
-                            className="id-tag flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-xs font-bold"
+                            className="id-tag flex h-8 w-6 shrink-0 items-center justify-center rounded-sm text-xs font-bold"
                             style={{ background: `${color}26`, color }}
                           >
                             {i + 1}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-ink-primary">{place}</p>
+                            <p className="truncate text-sm  font-medium text-ink-primary">{place}</p>
                             {area && <p className="truncate text-xs text-ink-muted">{area}</p>}
                           </div>
                           <span className="id-tag shrink-0 text-sm font-semibold" style={{ color }}>{h.share_pct}%</span>
@@ -449,7 +454,7 @@ export default function CommandCenter() {
               cadence, but always built from real sampled data (a real
               complaint's amount/city, a real cached prediction, a real
               detected ring's stats). */}
-          <div className="min-h-[260px] flex-1">
+          <div className="min-h-[260px] max-h-[420px] flex-1 overflow-y-auto">
             {events.length === 0 ? (
               <LoadingSpinner label="Loading activity…" />
             ) : (
@@ -459,7 +464,7 @@ export default function CommandCenter() {
                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: eventColor(ev) }} />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-baseline gap-2">
-                        <span className="id-tag shrink-0 text-xs font-semibold text-ink-primary">
+                        <span className="id-tag bg-white/5 shrink-0 text-xs font-semibold text-ink-secondary px-1">
                           {new Date(ev.timestamp).toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })}
                         </span>
                         <span className="min-w-0 truncate text-sm font-medium text-ink-primary">{ev.message}</span>

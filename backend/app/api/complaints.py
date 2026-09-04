@@ -163,12 +163,22 @@ def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = D
         remove_complaint_from_feed(complaint_id)
 
     from core import event_log
+    from core.case_code import case_code
+
+    from .feed import cached_feed_if_warm
+
+    # Same detail line the simulated version of this event shows (see
+    # activity_simulator.py) -- the real predicted location for this case
+    # if it's in the cached batch, else its bank, never a placeholder.
+    items = cached_feed_if_warm() or []
+    match = next((it for it in items if it["complaint_id"] == complaint_id), None)
+    detail = match["top_prediction"]["name"] if match else complaint.bank_name
 
     verb = "approved for action" if payload.decision == "approved" else "rejected"
     event_log.log_event(
         "decision",
-        f"Case #{complaint_id} {verb}",
-        complaint.victim.city if complaint.victim else "",
+        f"Case #{case_code(complaint_id)} — {verb}",
+        detail,
         complaint.victim.city if complaint.victim else None,
     )
 

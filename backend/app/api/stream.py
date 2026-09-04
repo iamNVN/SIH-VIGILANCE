@@ -34,6 +34,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from core import event_log, replay_state
+from core.case_code import case_code
 from core.db import SessionLocal, get_db
 
 from .complaints import _to_out
@@ -46,13 +47,16 @@ router = APIRouter(tags=["stream"])
 def _log_reveal_events(complaint):
     """Real, honestly-timed events for Command Center's Live Investigation
     Feed (see core/event_log.py) -- logged right as the reveal happens, not
-    backfilled or synthetic. A ring cross-reference (not a fabricated
-    "detected" moment) fires a second event when this complaint happens to
-    belong to an already-known ring."""
+    backfilled or synthetic. `case_code()` so this names the case the same
+    way the rest of the UI already does (Cases page, case workspace header)
+    -- a raw numeric id here would read as a different case entirely. A
+    ring cross-reference (not a fabricated "detected" moment) fires a
+    second event when this complaint happens to belong to an already-known
+    ring."""
     city = complaint.victim.city if complaint.victim else None
     event_log.log_event(
         "complaint_received",
-        "New complaint received",
+        f"Case #{case_code(complaint.id)} — New complaint received",
         f"₹{complaint.amount_lost:,.0f} · {city or 'Unknown city'}",
         city,
     )
@@ -60,7 +64,7 @@ def _log_reveal_events(complaint):
     if ring is not None:
         event_log.log_event(
             "ring_linked",
-            f"Case #{complaint.id} linked to Ring R-{ring['community_id']:03d}",
+            f"Case #{case_code(complaint.id)} — linked to Ring R-{ring['community_id']:03d}",
             f"{ring['size']} accounts · {ring['num_complaints']} linked complaints",
             city,
         )

@@ -57,4 +57,7 @@ export const api = {
   triggerNext: (city) => request(`/stream/trigger-next${qs({ city })}`, { method: "POST" }),
   resetStream: () => request("/stream/reset", { method: "POST" }),
   streamStatus: (city, signal) => request(`/stream/status${qs({ city })}`, { signal }),
+  getInjectLiveCases: (signal) => request("/settings/inject-live-cases", { signal }),
+  setInjectLiveCases: (enabled) =>
+    request("/settings/inject-live-cases", { method: "POST", body: JSON.stringify({ enabled }) }),
 };
