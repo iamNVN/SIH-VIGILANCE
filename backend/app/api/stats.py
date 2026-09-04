@@ -26,7 +26,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from core import replay_state
 from core.db import get_db
 from models import Complaint, Victim
 
@@ -80,12 +79,11 @@ def get_stats(city: Optional[str] = None, db: Session = Depends(get_db)):
     # Command Center is the "live feed" view -- gated to what's "arrived"
     # so far in the replay (see core/replay_state.py). Cases/search are
     # deliberately NOT gated (the full-archive investigator tool).
-    watermark = replay_state.get_live_watermark(db)
-    count_stmt = select(func.count(Complaint.id)).where(Complaint.filed_at <= watermark)
+    count_stmt = select(func.count(Complaint.id)).where(Complaint.revealed.is_(True))
     amount_stmt = select(func.coalesce(func.sum(Complaint.amount_lost), 0.0)).where(
-        Complaint.status == "open", Complaint.filed_at <= watermark
+        Complaint.status == "open", Complaint.revealed.is_(True)
     )
-    open_stmt = select(func.count(Complaint.id)).where(Complaint.status == "open", Complaint.filed_at <= watermark)
+    open_stmt = select(func.count(Complaint.id)).where(Complaint.status == "open", Complaint.revealed.is_(True))
     if city:
         count_stmt = count_stmt.join(Victim).where(Victim.city == city)
         amount_stmt = amount_stmt.join(Victim).where(Victim.city == city)
@@ -134,8 +132,7 @@ def get_timeseries(days: int = 7, city: Optional[str] = None, db: Session = Depe
     (the `n most recent open complaints` it batches over, see feed.py) --
     real numbers, just not an exhaustive per-day audit for very old dates.
     """
-    watermark = replay_state.get_live_watermark(db)
-    stmt = select(Complaint.filed_at, Complaint.id).where(Complaint.filed_at <= watermark)
+    stmt = select(Complaint.filed_at, Complaint.id).where(Complaint.revealed.is_(True))
     if city:
         stmt = stmt.join(Victim).where(Victim.city == city)
     rows = db.execute(stmt).all()

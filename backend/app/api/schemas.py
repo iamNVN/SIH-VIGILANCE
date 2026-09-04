@@ -45,3 +45,12 @@ class FeedbackCreate(BaseModel):
     prediction_id: int
     correct_bool: bool
     investigator_note: Optional[str] = None
+
+
+class DecisionCreate(BaseModel):
+    decision: str  # "approved" | "rejected"
+
+
+class DecisionOut(BaseModel):
+    status: str
+    next_step: str

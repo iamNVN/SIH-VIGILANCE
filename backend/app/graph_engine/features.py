@@ -172,15 +172,28 @@ def known_chain_accounts(ds: Dataset, complaint_id: int, as_of: pd.Timestamp) ->
     return chain
 
 
-def build_candidate_features(ds: Dataset, complaint_row: pd.Series, seed: int = 42) -> pd.DataFrame:
+def build_candidate_features(
+    ds: Dataset, complaint_row: pd.Series, seed: int = 42, graph_as_of: Optional[pd.Timestamp] = None
+) -> pd.DataFrame:
     """Build one feature row per candidate withdrawal point (all points in
     the victim's city) for a single complaint. Returns a DataFrame with a
-    `label` column (1 for the true cash-out point, else 0)."""
+    `label` column (1 for the true cash-out point, else 0).
+
+    `graph_as_of` is an optional override for JUST the point-in-time graph
+    snapshot (community detection is the expensive part -- see
+    graph_cache.py) -- every other as_of-dependent computation below
+    (recency decay, known chain state) still uses the complaint's own real
+    `filed_at`, unaffected. Only feed.py's cross-case batch passes this (see
+    its docstring for why): floored to that complaint's own calendar day so
+    many complaints share one cached graph build without ever looking past
+    their own filed_at (midnight-of-day is always <= a complaint's own
+    time-of-day, so this can only OMIT same-day-earlier events, never leak
+    anything past the complaint's own filing moment)."""
     complaint_id = complaint_row["id"]
     as_of = complaint_row["filed_at"]
     victim_city = ds.victim_city[complaint_row["victim_id"]]
 
-    G, node_to_community = get_graph_and_communities(ds, as_of, seed=seed)
+    G, node_to_community = get_graph_and_communities(ds, graph_as_of if graph_as_of is not None else as_of, seed=seed)
 
     frontier, chain_depth, last_ts = known_chain_state(ds, complaint_id, as_of)
     frontier_node = f"acc_{frontier}"

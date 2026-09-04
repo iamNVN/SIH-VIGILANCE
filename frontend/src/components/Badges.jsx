@@ -29,14 +29,23 @@ export function ConfidenceBadge({ confidence, compact = false }) {
   );
 }
 
+const STATUS_LABEL = {
+  open: "open",
+  closed: "closed",
+  action_approved: "approved",
+  action_rejected: "rejected",
+};
+
 export function StatusPill({ status }) {
   const styles = {
     open: "bg-series-1/15 text-series-1 ring-series-1/30",
     closed: "bg-white/5 text-ink-muted ring-white/10",
+    action_approved: "bg-status-good/15 text-status-good ring-status-good/30",
+    action_rejected: "bg-status-critical/15 text-status-critical ring-status-critical/30",
   };
   return (
     <span className={`inline-flex items-center rounded-sm px-2.5 py-1 text-xs font-medium uppercase tracking-wide ring-1 ring-inset ${styles[status] || styles.open}`}>
-      {status}
+      {STATUS_LABEL[status] || status}
     </span>
   );
 }

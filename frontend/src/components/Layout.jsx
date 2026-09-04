@@ -5,6 +5,7 @@ import {
   FileText,
   Folder,
   Home,
+  MapPin,
   Settings as SettingsIcon,
   Share2,
   Target,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: "/rings", label: "Network Graph", icon: Share2, roles: ["investigator", "administrator"] },
   { to: "/predictions", label: "Predictions", icon: Target, roles: ["investigator", "administrator"] },
   { to: "/alerts", label: "Alerts", icon: Bell, roles: ["investigator", "administrator"] },
+  { to: "/maps", label: "Maps", icon: MapPin, roles: ["investigator", "administrator"] },
   { to: "/analytics", label: "Reports", icon: FileText, roles: ["administrator"] },
   { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["investigator", "administrator"] },
 ];
@@ -117,8 +119,19 @@ export default function Layout() {
 
         <main className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
+            {/* Keyed on the CASE page, not the exact pathname -- a case
+                workspace's 4 tabs (overview/graph/map/brief) are separate
+                routes under the same /cases/:id, so keying on the full
+                pathname made every tab click remount this entire branch:
+                CaseWorkspace's own useApi calls for the complaint/prediction
+                refired (refetching data that hadn't changed) and its
+                persistent header/right-column re-animated in from scratch,
+                even though only the tab's own inner content should have
+                changed. Stripping the tab segment means all 4 tabs share
+                one key (no remount on tab switch) while still remounting
+                for a genuinely different page or a different case id. */}
             <motion.div
-              key={location.pathname}
+              key={location.pathname.replace(/\/(overview|graph|map|brief)$/, "")}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}

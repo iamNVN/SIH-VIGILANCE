@@ -13,6 +13,7 @@ import Cases from "./pages/Cases";
 import CommandCenter from "./pages/CommandCenter";
 import FraudRings from "./pages/FraudRings";
 import Login from "./pages/Login";
+import Maps from "./pages/Maps";
 import Predictions from "./pages/Predictions";
 import Settings from "./pages/Settings";
 
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/rings" element={<FraudRings />} />
             <Route path="/predictions" element={<Predictions />} />
             <Route path="/alerts" element={<Alerts />} />
+            <Route path="/maps" element={<Maps />} />
             <Route
               path="/analytics"
               element={

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { ArrowUpDown, Search } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -7,6 +7,7 @@ import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { StatusPill } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
+import { caseCode, decodeCaseCode } from "../utils/caseCode";
 
 function money(n) {
   return `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -20,18 +21,35 @@ function initials(name) {
 
 const PAGE_SIZE = 15;
 
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "risk", label: "Highest risk" },
+  { value: "confidence", label: "Highest confidence" },
+];
+
 export default function Cases() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const city = user?.city || null;
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState("newest");
+
+  // Case codes (see utils/caseCode.js) are a scrambled display-only encoding
+  // of the real id -- the backend only knows how to search by that real id,
+  // so a typed code ("BD4K", short + has a digit -- real names/cities/banks
+  // don't look like that) gets decoded back to it before the search fires.
+  const decodedId = /^[0-9A-Za-z]{1,4}$/.test(query.trim()) && /\d/.test(query.trim())
+    ? decodeCaseCode(query.trim())
+    : null;
+  const effectiveQuery = decodedId !== null ? String(decodedId) : query;
 
   const { data: complaints, error, loading } = useApi(
-    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, query, city, signal),
-    [page, query, city]
+    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, effectiveQuery, city, signal, sort),
+    [page, effectiveQuery, city, sort]
   );
-  const { data: countData } = useApi((signal) => api.countComplaints(query, city, signal), [query, city]);
+  const { data: countData } = useApi((signal) => api.countComplaints(effectiveQuery, city, signal), [effectiveQuery, city]);
   const total = countData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -47,17 +65,34 @@ export default function Cases() {
         <p className="text-sm text-ink-muted">Search and browse every complaint {city ? `in ${city}` : "on file"}.</p>
       </div>
 
-      <div className="mb-4 flex items-center gap-2 rounded-md border border-surface-border bg-surface-card px-3 py-2.5">
-        <Search className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
-        <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(0);
-          }}
-          placeholder="Search by victim name, city, bank, or case #…"
-          className="w-full bg-transparent text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none"
-        />
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex flex-1 items-center gap-2 rounded-md border border-surface-border bg-surface-card px-3 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+            placeholder="Search by victim name, city, bank, or case #…"
+            className="w-full bg-transparent text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-2 rounded-md border border-surface-border bg-surface-card px-3 py-2.5">
+          <ArrowUpDown className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={2} />
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(0);
+            }}
+            className="bg-surface-card text-sm text-ink-primary focus:outline-none"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="card">
@@ -93,7 +128,7 @@ export default function Cases() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink-primary">
-                      <span className="id-tag text-ink-muted">#{c.id}</span> · {c.victim_name || "Unknown victim"} · {c.victim_city}
+                      <span className="id-tag text-ink-muted">#{caseCode(c.id)}</span> · {c.victim_name || "Unknown victim"} · {c.victim_city}
                     </p>
                     <p className="truncate text-xs text-ink-muted">{c.bank_name} · filed {new Date(c.filed_at).toLocaleString()}</p>
                   </div>

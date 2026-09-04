@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
+import { caseCode } from "../utils/caseCode";
 import { confidenceContext } from "../utils/confidence";
 
 function money(n) {
@@ -56,7 +57,7 @@ export default function Alerts() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink-primary">
-                    <span className="id-tag text-ink-muted">#{it.complaint_id}</span> {it.victim_name} · {it.victim_city}
+                    <span className="id-tag text-ink-muted">#{caseCode(it.complaint_id)}</span> {it.victim_name} · {it.victim_city}
                   </p>
                   <p className="truncate text-xs text-ink-secondary">Likely cash-out: {it.top_prediction.name}</p>
                   {ctx && <p className="mt-0.5 text-xs text-status-critical">{ctx.sentence}</p>}

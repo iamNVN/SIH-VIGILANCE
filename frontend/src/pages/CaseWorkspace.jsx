@@ -1,12 +1,16 @@
-import { motion } from "framer-motion";
+import { faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, Folder, Landmark, MapPin, Map as MapIcon } from "lucide-react";
-import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import CashOutMap from "../components/CashOutMap";
 import SectionHeader from "../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../components/StateViews";
+import { caseCode } from "../utils/caseCode";
 import { confidenceContext } from "../utils/confidence";
 
 // Each tab keeps ONE color as its identity throughout the workspace (tab
@@ -36,6 +40,7 @@ const URGENCY_TONE = {
 export default function CaseWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { data: complaint, error, loading } = useApi((signal) => api.getComplaint(id, signal), [id]);
   const { data: prediction, loading: predLoading, error: predError } = useApi(
@@ -45,6 +50,37 @@ export default function CaseWorkspace() {
   const top = prediction?.predictions?.[0];
   const tone = URGENCY_TONE[top?.urgency] || URGENCY_TONE.LOW;
   const lift = top && prediction?.n_candidates > 0 ? confidenceContext(top.confidence, prediction.n_candidates) : null;
+
+  // Lifted out of Brief.jsx (the last of 4 tabs) -- the actual investigator
+  // decision on a case shouldn't require clicking through 3 other tabs
+  // first to even find it, so it's surfaced here too, on the persistent
+  // header every tab shares. Brief.jsx still shows its own copy (reading
+  // the same state via context) alongside the full narrative it's a
+  // decision about.
+  //
+  // A real, persisted decision (POST /complaints/{id}/decision), not just
+  // local UI state -- it updates the complaint's actual status (reflected
+  // in Cases/Command Center/stats too, see complaints.py) and returns an
+  // honestly-labeled simulated next step, since this is a sign-off gate
+  // ("not auto-executed"), not a real bank/account integration.
+  const [localDecision, setLocalDecision] = useState(null);
+  const [nextStep, setNextStep] = useState(null);
+  const [deciding, setDeciding] = useState(false);
+  const decision =
+    localDecision || (complaint?.status === "action_approved" ? "approved" : complaint?.status === "action_rejected" ? "rejected" : null);
+
+  const handleDecision = async (choice) => {
+    setDeciding(true);
+    try {
+      const result = await api.decideComplaint(id, choice);
+      setLocalDecision(choice);
+      setNextStep(result.next_step);
+    } catch (e) {
+      setNextStep(`Couldn't record this decision: ${e.message}`);
+    } finally {
+      setDeciding(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-8 py-8">
@@ -64,7 +100,7 @@ export default function CaseWorkspace() {
                   <Folder className="h-6 w-6 text-white" strokeWidth={2} />
                 </div>
                 <div>
-                  <p className="id-tag text-xs font-semibold uppercase tracking-wide text-series-1">Case #{complaint.id}</p>
+                  <p className="id-tag text-xs font-semibold uppercase tracking-wide text-series-1">Case #{caseCode(complaint.id)}</p>
                   <h1 className="text-2xl font-semibold text-ink-primary">{complaint.victim_name}</h1>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
                     <span className="flex items-center gap-1.5">
@@ -141,6 +177,46 @@ export default function CaseWorkspace() {
                     </div>
                   </div>
                 )}
+                {top && (
+                  <div className="mt-4 border-t border-surface-border pt-4">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleDecision("approved")}
+                        disabled={deciding}
+                        className="flex items-center gap-2 rounded-md bg-status-good px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+                      >
+                        <FontAwesomeIcon icon={faCheck} className="h-3.5 w-3.5" /> Approve for action
+                      </button>
+                      <button
+                        onClick={() => handleDecision("rejected")}
+                        disabled={deciding}
+                        className="flex items-center gap-2 rounded-md border border-surface-border px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-white/5 disabled:opacity-50"
+                      >
+                        <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" /> Reject
+                      </button>
+                      {decision && (
+                        <motion.span
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className={`rounded-sm px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            decision === "approved" ? "bg-status-good/15 text-status-good" : "bg-status-critical/15 text-status-critical"
+                          }`}
+                        >
+                          {decision}
+                        </motion.span>
+                      )}
+                    </div>
+                    {nextStep && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-3 text-xs text-ink-muted"
+                      >
+                        {nextStep}
+                      </motion.p>
+                    )}
+                  </div>
+                )}
               </motion.div>
 
               {/* Tabs and Tab Content */}
@@ -170,7 +246,21 @@ export default function CaseWorkspace() {
                   ))}
                 </div>
 
-                <Outlet context={{ complaint, prediction, predLoading, predError }} />
+                <AnimatePresence mode="wait">
+                  {/* A small fade on tab switch -- now that Layout.jsx no
+                      longer remounts this whole page per tab, switching tabs
+                      needs its OWN, lighter transition so it doesn't feel
+                      static, without re-animating the header/right column. */}
+                  <motion.div
+                    key={location.pathname}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Outlet context={{ complaint, prediction, predLoading, predError, decision, nextStep, deciding, handleDecision }} />
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </div>
 

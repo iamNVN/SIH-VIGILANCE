@@ -1,10 +1,14 @@
 """main.py -- FastAPI entrypoint, Blueprint Section 21."""
 
+import threading
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from api import brief, complaints, evaluation, explain, feed, graph, predict, rings, stats, stream
+from api.feed import _cached_feed
+from api.rings import _cached_rings
 from core.db import Base, engine
 from core.model_registry import registry
 from graph_engine.features import NoKnownTransactionChain
@@ -33,6 +37,19 @@ def no_chain_handler(request: Request, exc: NoKnownTransactionChain):
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+
+    # Command Center's first load fires several requests that all depend on
+    # the batch feed / rings caches (see feed.py, rings.py) -- without this,
+    # whichever real user opens the app first pays that ~5-6s cold-cache
+    # cost themselves. Warming both once here in a background thread means
+    # by the time anyone's browser has finished loading the page, the first
+    # real request already hits a warm cache.
+    def _warm_caches():
+        if registry.ready:
+            _cached_feed()
+        _cached_rings()
+
+    threading.Thread(target=_warm_caches, daemon=True).start()
 
 
 @app.get("/health")

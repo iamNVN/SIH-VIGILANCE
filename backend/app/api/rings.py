@@ -28,7 +28,7 @@ from graph_engine.community import community_sizes, detect_communities
 
 router = APIRouter(tags=["rings"])
 
-_CACHE_TTL_SECONDS = 30
+_CACHE_TTL_SECONDS = 90  # matches feed.py's TTL -- see that file for why 90s is safe here too
 _cache = {"computed_at": 0.0, "rings": []}
 
 

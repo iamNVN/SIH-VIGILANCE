@@ -45,7 +45,28 @@ function MapResizeFix() {
 
 // Urgency is a state, not an identity, so it wears the status palette
 // (reserved meaning) rather than a categorical series color.
-const URGENCY_COLOR = { HIGH: "#e66767", MEDIUM: "#fab219", LOW: "#898781" };
+export const URGENCY_COLOR = { HIGH: "#e66767", MEDIUM: "#fab219", LOW: "#898781" };
+
+// A fixed center+zoom13 only ever framed predictions[0] -- every other
+// marker could land off-screen depending on how spread out that batch's
+// cash-out points are. fitBounds derives the view from every point actually
+// being shown, so "zoomed out to fit all the predictions" holds regardless
+// of how many there are or how far apart.
+function FitBounds({ predictions }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!predictions || predictions.length === 0) return;
+    if (predictions.length === 1) {
+      map.setView([predictions[0].lat, predictions[0].lon], 14, { animate: false });
+      return;
+    }
+    const bounds = L.latLngBounds(predictions.map((p) => [p.lat, p.lon]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: false });
+  }, [map, predictions]);
+
+  return null;
+}
 
 export default function CashOutMap({ predictions, height = 420 }) {
   const center = useMemo(() => {
@@ -62,9 +83,10 @@ export default function CashOutMap({ predictions, height = 420 }) {
   }
 
   return (
-    <div className="dark-tiles overflow-hidden rounded-md border border-surface-border" style={{ height }}>
+    <div className="dark-tiles relative overflow-hidden rounded-md border border-surface-border" style={{ height }}>
       <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
         <MapResizeFix />
+        <FitBounds predictions={predictions} />
         {/* Esri's public World_Dark_Gray tile services -- no API key, no
             rate-limit block (unlike OSM's volunteer server, which flags
             embedded apps) and no key-gate (unlike CartoDB's basemaps, which
@@ -86,7 +108,7 @@ export default function CashOutMap({ predictions, height = 420 }) {
           <Fragment key={p.withdrawal_point_id}>
             <Circle
               center={[p.lat, p.lon]}
-              radius={400}
+              radius={80}
               pathOptions={{ color: URGENCY_COLOR[p.urgency] || "#898781", fillOpacity: 0.1, weight: 1 }}
             />
             <CircleMarker
@@ -114,28 +136,36 @@ export default function CashOutMap({ predictions, height = 420 }) {
           </Fragment>
         ))}
       </MapContainer>
+      <MapLegend />
     </div>
   );
 }
 
-export function CashOutMapLegend() {
+// A floating control anchored inside the map itself (matches how real GIS
+// tools place a legend), not a separate list living below it -- so it's
+// visible on every map that uses this component (Command Center's hotspots
+// panel, a case's own Cash-out Map tab, the case workspace's inline map),
+// not just the one place a caller remembered to render a below-map list.
+function MapLegend() {
   const items = [
     { color: URGENCY_COLOR.HIGH, label: "High risk" },
     { color: URGENCY_COLOR.MEDIUM, label: "Medium risk" },
     { color: URGENCY_COLOR.LOW, label: "Low risk" },
   ];
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-muted">
-      {items.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-          {item.label}
-        </span>
-      ))}
-      <span className="flex items-center gap-1.5">
-        <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold">%</span>
-        share of scored cases with this top pick
-      </span>
+    <div className="pointer-events-none absolute bottom-2 left-2 z-[1000] rounded-md border border-white/10 bg-[#161615]/90 px-2.5 py-2 text-[11px] text-ink-muted shadow-lg backdrop-blur-sm">
+      <div className="space-y-1">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+            {item.label}
+          </div>
+        ))}
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 border-t border-white/10 pt-1.5">
+        <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold text-ink-secondary">%</span>
+        <span>share of cases picking this spot</span>
+      </div>
     </div>
   );
 }

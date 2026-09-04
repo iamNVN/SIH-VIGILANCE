@@ -8,13 +8,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from api.schemas import ComplaintCreate, ComplaintOut
+from api.schemas import ComplaintCreate, ComplaintOut, DecisionCreate, DecisionOut
 from core import dataset_provider
 from core.db import get_db
 from models import Complaint, Victim
 from nlp.entity_extraction import extract_entities
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
+
+_URGENCY_RANK = {"HIGH": 2, "MEDIUM": 1, "LOW": 0}
+
+
+def _risk_lookup() -> dict:
+    """complaint_id -> (urgency_rank, confidence), from the same cached
+    batch feed the Predictions/Alerts pages use (see api/feed.py) -- no
+    separate computation, so "sort by risk" here always agrees with what
+    those pages show for the same complaint. A complaint this feed hasn't
+    scored (closed, or the batch's model isn't ready yet) sorts last, not
+    excluded -- Cases is the full-archive browse view, unlike Alerts/
+    Predictions which only ever show scored open complaints."""
+    from .feed import cached_feed_if_warm
+
+    items = cached_feed_if_warm() or []
+    return {
+        it["complaint_id"]: (_URGENCY_RANK.get(it["top_prediction"]["urgency"], 0), it["top_prediction"]["confidence"])
+        for it in items
+    }
 
 
 def _to_out(complaint: Complaint) -> ComplaintOut:
@@ -56,11 +75,30 @@ def _filtered(stmt, q: Optional[str], city: Optional[str]):
 
 @router.get("", response_model=list[ComplaintOut])
 def list_complaints(
-    skip: int = 0, limit: int = 50, q: Optional[str] = None, city: Optional[str] = None, db: Session = Depends(get_db)
+    skip: int = 0,
+    limit: int = 50,
+    q: Optional[str] = None,
+    city: Optional[str] = None,
+    sort: str = "newest",
+    db: Session = Depends(get_db),
 ):
     limit = min(limit, 200)
     stmt = _filtered(select(Complaint).options(joinedload(Complaint.victim)), q, city)
-    rows = db.execute(stmt.order_by(Complaint.filed_at.desc()).offset(skip).limit(limit)).scalars().all()
+
+    if sort in ("risk", "confidence"):
+        # Can't express "order by this complaint's model confidence" in SQL
+        # (confidence lives in feed.py's cache, not a DB column) -- fetch the
+        # filtered set unsorted, rank in Python against that cache, then
+        # paginate. Fine at this dataset's size (low hundreds of rows);
+        # would need a real query-side rethink at a much bigger scale.
+        risk = _risk_lookup()
+        rows = db.execute(stmt).scalars().all()
+        rows.sort(key=lambda r: risk.get(r.id, (0, 0.0)), reverse=True)
+        rows = rows[skip: skip + limit]
+    else:
+        order = Complaint.filed_at.asc() if sort == "oldest" else Complaint.filed_at.desc()
+        rows = db.execute(stmt.order_by(order).offset(skip).limit(limit)).scalars().all()
+
     return [_to_out(r) for r in rows]
 
 
@@ -77,6 +115,54 @@ def get_complaint(complaint_id: int, db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(404, f"complaint {complaint_id} not found")
     return _to_out(row)
+
+
+# The Intervention Brief's "Requires sign-off · not auto-executed" label is
+# the honest boundary here: this records a real, persisted investigator
+# decision (survives a refresh, changes the case's status everywhere it's
+# shown -- Cases, Command Center's tables, /stats' open_complaints and
+# amount-at-risk, which a decided case correctly drops out of, same as
+# feed.py's Predictions/Alerts batch) -- but it does NOT call a bank, freeze
+# an account, or take any real external action. `next_step` says what a
+# real system would do next, clearly labeled as simulated, rather than
+# either silently doing nothing (the old cosmetic-only version) or
+# pretending an integration exists that doesn't.
+_NEXT_STEP = {
+    "approved": (
+        "Flagged for {bank}'s fraud response team -- a freeze request against the "
+        "predicted cash-out account would be logged next. (Simulated: no real bank "
+        "integration exists in this demo.)"
+    ),
+    "rejected": (
+        "Dismissed from the active response queue. No further automated action will "
+        "be taken on this case. (Simulated: no real bank integration exists in this demo.)"
+    ),
+}
+
+
+@router.post("/{complaint_id}/decision", response_model=DecisionOut)
+def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = Depends(get_db)):
+    if payload.decision not in ("approved", "rejected"):
+        raise HTTPException(422, "decision must be 'approved' or 'rejected'")
+
+    complaint = db.get(Complaint, complaint_id)
+    if complaint is None:
+        raise HTTPException(404, f"complaint {complaint_id} not found")
+
+    was_open = complaint.status == "open"
+    complaint.status = f"action_{payload.decision}"
+    db.commit()
+
+    if was_open:
+        # This complaint no longer belongs in the "open" batch feed
+        # (Predictions/Alerts, and /stats' high_risk_cases) -- without this
+        # it would keep showing there as HIGH/scored until the next full
+        # rebuild, contradicting the status change just made.
+        from .feed import remove_complaint_from_feed
+
+        remove_complaint_from_feed(complaint_id)
+
+    return DecisionOut(status=complaint.status, next_step=_NEXT_STEP[payload.decision].format(bank=complaint.bank_name))
 
 
 @router.post("", response_model=ComplaintOut, status_code=201)

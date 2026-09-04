@@ -11,7 +11,7 @@ import {
   Shield,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CartesianGrid,
@@ -27,8 +27,9 @@ import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { ConfidenceBadge, UrgencyBadge } from "../components/Badges";
-import CashOutMap, { CashOutMapLegend } from "../components/CashOutMap";
+import CashOutMap, { URGENCY_COLOR } from "../components/CashOutMap";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
+import { caseCode } from "../utils/caseCode";
 
 const IST = "Asia/Kolkata";
 const AXIS_STYLE = { fontSize: 11, fill: "#898781" };
@@ -102,7 +103,7 @@ export default function CommandCenter() {
     [city]
   );
   const { data: ringsData, loading: ringsLoading, reload: reloadRings } = useApi((signal) => api.rings(5, city, signal), [city]);
-  const { data: streamStatus, reload: reloadStreamStatus } = useApi((signal) => api.streamStatus(signal), []);
+  const { data: streamStatus, reload: reloadStreamStatus } = useApi((signal) => api.streamStatus(city, signal), [city]);
 
   const [triggering, setTriggering] = useState(false);
   const [arrival, setArrival] = useState(null); // { complaint, prediction | null, error | null }
@@ -119,7 +120,7 @@ export default function CommandCenter() {
   const handleTrigger = async () => {
     setTriggering(true);
     try {
-      const result = await api.triggerNext();
+      const result = await api.triggerNext(city);
       if (result.done) {
         setArrival({ done: true });
       } else {
@@ -144,16 +145,28 @@ export default function CommandCenter() {
   };
 
   const hotspots = hotspotsData?.hotspots || [];
-  const hotspotPredictions = hotspots.map((h, i) => ({
-    withdrawal_point_id: i,
-    name: h.name,
-    lat: h.lat,
-    lon: h.lon,
-    rank: i + 1,
-    confidence: h.share_pct / 100,
-    urgency: i === 0 ? "HIGH" : i <= 2 ? "MEDIUM" : "LOW",
-    explanation: { narrative: `Top pick for ${h.count} of ${hotspotsData?.n_cases || 0} currently scored open cases.` },
-  }));
+  // Memoized on `hotspots` itself (not recomputed every render): Command
+  // Center's live clock re-renders this component every second, and an
+  // unmemoized .map() here would hand CashOutMap a brand-new array (and new
+  // object literals) each time even though the underlying data hadn't
+  // changed -- which made the map's fitBounds effect (keyed on this array's
+  // reference) re-fire every second, snapping any zoom/pan the user had
+  // just done back to the fitted view. Verified: this is exactly what made
+  // the map feel unresponsive to scroll/drag.
+  const hotspotPredictions = useMemo(
+    () =>
+      hotspots.map((h, i) => ({
+        withdrawal_point_id: i,
+        name: h.name,
+        lat: h.lat,
+        lon: h.lon,
+        rank: i + 1,
+        confidence: h.share_pct / 100,
+        urgency: i === 0 ? "HIGH" : i <= 2 ? "MEDIUM" : "LOW",
+        explanation: { narrative: `Top pick for ${h.count} of ${hotspotsData?.n_cases || 0} currently scored open cases.` },
+      })),
+    [hotspots, hotspotsData?.n_cases]
+  );
 
   const chartData = (timeseries?.days || []).map((d) => ({
     date: new Date(d.date).toLocaleDateString("en-IN", { timeZone: IST, month: "short", day: "numeric" }),
@@ -229,7 +242,7 @@ export default function CommandCenter() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="id-tag text-[11px] font-semibold uppercase tracking-wide text-series-1">
-                      New complaint arrived · #{arrival.complaint.id}
+                      New complaint arrived · #{caseCode(arrival.complaint.id)}
                     </p>
                     <p className="mt-0.5 truncate text-base font-semibold text-ink-primary">
                       {arrival.complaint.victim_name || "Unknown victim"} · {arrival.complaint.victim_city || city || "—"}
@@ -278,21 +291,27 @@ export default function CommandCenter() {
           number this project has avoided everywhere else. Gated to what's
           "arrived" so far in the replay (see backend/core/replay_state.py) --
           Simulate Complaint moves these for real. */}
-      {!statsLoading && stats && (
-        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard icon={FileText} iconBg="bg-series-1/15" iconColor="text-series-1" label="Total Complaints" value={stats.total_complaints} delay={0} />
-          <StatCard icon={Shield} iconBg="bg-status-critical/15" iconColor="text-status-critical" label="High Risk Cases" value={recentAlerts?.total ?? stats.high_risk_cases} delay={0.03} />
-          <StatCard icon={Share2} iconBg="bg-series-7/15" iconColor="text-series-7" label="Active Fraud Rings" value={stats.suspected_active_rings} delay={0.06} />
-          <StatCard icon={IndianRupee} iconBg="bg-status-warning/15" iconColor="text-status-warning" label="Amount at Risk" value={stats.total_amount_at_risk} format={money} delay={0.09} />
-        </div>
-      )}
+      {/* Always mounted, even while loading -- StatCard already has its own
+          skeleton for a null/undefined value (see below), but gating this
+          whole block behind `stats` loading meant these 4 cards were
+          completely ABSENT for however long /stats took, then popped in all
+          at once, pushing the chart/hotspots row down a beat later -- a
+          real layout shift, not just a slow number. Rendering the shells
+          immediately keeps the page's height stable from first paint; each
+          card fills in independently as its own data resolves. */}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard icon={FileText} iconBg="bg-series-1/15" iconColor="text-series-1" label="Total Complaints" value={stats?.total_complaints} delay={0} />
+        <StatCard icon={Shield} iconBg="bg-status-critical/15" iconColor="text-status-critical" label="High Risk Cases" value={recentAlerts?.total ?? stats?.high_risk_cases} delay={0.03} />
+        <StatCard icon={Share2} iconBg="bg-series-7/15" iconColor="text-series-7" label="Active Fraud Rings" value={stats?.suspected_active_rings} delay={0.06} />
+        <StatCard icon={IndianRupee} iconBg="bg-status-warning/15" iconColor="text-status-warning" label="Amount at Risk" value={stats?.total_amount_at_risk} format={money} delay={0.09} />
+      </div>
 
       {/* Charts row -- same 2-column template as the tables row below so
           "Complaints Over Time" lines up with "Recent High Risk
           Complaints", and the hotspots map lines up with "Active Fraud
           Rings". */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card p-5">
+        <div className="card flex flex-col p-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink-primary">Complaints Over Time</h2>
             <select
@@ -306,19 +325,26 @@ export default function CommandCenter() {
             </select>
           </div>
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2a" vertical={false} />
-                <XAxis dataKey="date" tick={AXIS_STYLE} stroke="#383835" />
-                <YAxis tick={AXIS_STYLE} stroke="#383835" allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{ background: "#161615", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, fontSize: 12 }}
-                  labelStyle={{ color: "#ffffff" }}
-                />
-                <Line type="monotone" dataKey="Total Complaints" stroke="#3987e5" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="High Risk Complaints" stroke="#e66767" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            // flex-1, not a fixed height: this card sits in a grid row next
+            // to the (taller) hotspots panel, so the grid stretches this
+            // card's height to match -- flex-1 lets the chart actually fill
+            // that stretched space instead of staying pinned to a fixed
+            // pixel height and leaving the rest as empty space below it.
+            <div className="min-h-[260px] flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2a" vertical={false} />
+                  <XAxis dataKey="date" tick={AXIS_STYLE} stroke="#383835" />
+                  <YAxis tick={AXIS_STYLE} stroke="#383835" allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "#161615", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, fontSize: 12 }}
+                    labelStyle={{ color: "#ffffff" }}
+                  />
+                  <Line type="monotone" dataKey="Total Complaints" stroke="#3987e5" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="High Risk Complaints" stroke="#e66767" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <LoadingSpinner label="Loading trend…" />
           )}
@@ -343,19 +369,23 @@ export default function CommandCenter() {
           {hotspots.length > 0 ? (
             <>
               <CashOutMap predictions={hotspotPredictions} height={220} />
-              <div className="mt-3">
-                <CashOutMapLegend />
-              </div>
               <ul className="mt-3 space-y-1 border-t border-surface-border pt-3">
-                {hotspots.map((h, i) => (
-                  <li key={h.name} className="flex items-center gap-2 text-xs">
-                    <span className="id-tag flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-white/10 text-[10px] font-bold text-ink-muted">
-                      {i + 1}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-ink-secondary">{h.name}</span>
-                    <span className="id-tag shrink-0 font-semibold text-ink-primary">{h.share_pct}%</span>
-                  </li>
-                ))}
+                {hotspots.map((h, i) => {
+                  const urgency = hotspotPredictions[i]?.urgency;
+                  const color = URGENCY_COLOR[urgency] || URGENCY_COLOR.LOW;
+                  return (
+                    <li key={h.name} className="flex items-center gap-2 text-xs">
+                      <span
+                        className="id-tag flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold"
+                        style={{ background: `${color}33`, color }}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-ink-secondary">{h.name}</span>
+                      <span className="id-tag shrink-0 font-semibold" style={{ color }}>{h.share_pct}%</span>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           ) : (
@@ -396,7 +426,7 @@ export default function CommandCenter() {
                       onClick={() => navigate(`/cases/${it.complaint_id}`)}
                       className="cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5"
                     >
-                      <td className="id-tag px-5 py-2.5 text-ink-muted">#{it.complaint_id}</td>
+                      <td className="id-tag px-5 py-2.5 text-ink-muted">#{caseCode(it.complaint_id)}</td>
                       <td className="px-3 py-2.5 font-medium text-ink-primary">{it.victim_name}</td>
                       <td className="id-tag px-3 py-2.5 text-ink-secondary">{money(it.amount_lost)}</td>
                       <td className="max-w-[160px] truncate px-3 py-2.5 text-ink-secondary">{it.top_prediction.name}</td>

@@ -39,6 +39,23 @@ def none_if_nan(value):
     return None if pd.isna(value) else value
 
 
+HOLDBACK_PER_CITY = 15
+
+
+def compute_holdback_ids(complaints: pd.DataFrame, victims: pd.DataFrame) -> set:
+    """The most-recent-by-filed_at HOLDBACK_PER_CITY complaints IN EACH
+    CITY, held back as 'not yet arrived' for /stream/trigger-next to
+    reveal. Per-city (not one global holdback) so ANY investigator's
+    Simulate Complaint has something in their own jurisdiction to reveal,
+    not just whichever city the globally-next complaint happens to be in."""
+    merged = complaints.merge(victims[["id", "city"]], left_on="victim_id", right_on="id", suffixes=("", "_victim"))
+    holdback_ids = set()
+    for _city, group in merged.groupby("city"):
+        newest = group.sort_values("filed_at", ascending=False).head(HOLDBACK_PER_CITY)
+        holdback_ids.update(newest["id"].tolist())
+    return holdback_ids
+
+
 def seed(data_dir: Path, reset: bool):
     if reset:
         print("Dropping and recreating all tables...")
@@ -84,15 +101,18 @@ def seed(data_dir: Path, reset: bool):
         db.commit()
 
         print("Inserting complaints...")
+        holdback_ids = compute_holdback_ids(complaints, victims)
         complaints["filed_at"] = to_dt(complaints["filed_at"])
         db.bulk_save_objects([
             Complaint(
                 id=r.id, victim_id=r.victim_id, filed_at=r.filed_at, amount_lost=r.amount_lost,
                 narrative_text=r.narrative_text, bank_name=r.bank_name, status=r.status,
+                revealed=r.id not in holdback_ids,
             )
             for r in complaints.itertuples()
         ])
         db.commit()
+        print(f"  {len(holdback_ids)} complaints held back as 'not yet arrived' ({HOLDBACK_PER_CITY}/city) for Simulate Complaint")
 
         print("Inserting transactions...")
         transactions["timestamp"] = to_dt(transactions["timestamp"])

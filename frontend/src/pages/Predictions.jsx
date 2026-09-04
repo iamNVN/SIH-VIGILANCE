@@ -5,6 +5,7 @@ import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { ConfidenceBadge, UrgencyBadge } from "../components/Badges";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
+import { caseCode } from "../utils/caseCode";
 import { confidenceContext } from "../utils/confidence";
 
 function money(n) {
@@ -54,7 +55,7 @@ export default function Predictions() {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink-primary">
-                        <span className="id-tag text-ink-muted">#{it.complaint_id}</span> {it.victim_name} · {it.victim_city}
+                        <span className="id-tag text-ink-muted">#{caseCode(it.complaint_id)}</span> {it.victim_name} · {it.victim_city}
                       </p>
                       <p className="truncate text-xs text-ink-muted">
                         → {it.top_prediction.name}

@@ -39,6 +39,14 @@ class Complaint(Base):
     narrative_text: Mapped[str] = mapped_column(Text)
     bank_name: Mapped[str] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(30), default="open")
+    # Live-replay gate (core/replay_state.py) -- False means "not arrived
+    # yet" on Command Center's live-feed view (stats/feed/alerts/hotspots),
+    # though still reachable via Cases/direct link, which are deliberately
+    # the ungated full archive. seed_db.py sets this False for a per-city
+    # holdback so /stream/trigger-next has something real to reveal for
+    # ANY investigator's city, not just whichever city the global next-by-
+    # date complaint happens to be in.
+    revealed: Mapped[bool] = mapped_column(Boolean, default=True)
 
     victim: Mapped["Victim"] = relationship(back_populates="complaints")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="complaint")

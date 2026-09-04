@@ -6,23 +6,49 @@ import { api } from "../../api/client";
 import { useApi } from "../../api/useApi";
 import SectionHeader from "../../components/SectionHeader";
 import { EmptyState, ErrorState, LoadingSpinner } from "../../components/StateViews";
+import { caseCode } from "../../utils/caseCode";
 
 const LINKED_PREVIEW_COUNT = 4;
-
 function whyLinkedReasons(r) {
   const reasons = [];
+
   for (const acc of r.shared_accounts || []) {
-    reasons.push(`Shares mule account ${acc.account_number_fake} (${acc.bank_name}) with this case.`);
+    reasons.push(
+      <>
+        Shares mule account{" "}
+        <span className="text-status-warning">
+          {acc.account_number_fake}
+        </span>{" "}
+        ({acc.bank_name}) with this case.
+      </>
+    );
   }
+
   for (const wp of r.shared_withdrawal_points || []) {
-    reasons.push(`Money from both complaints was cashed out at the same location: ${wp.name}.`);
+    reasons.push(
+      <>
+        Money from both complaints was cashed out at the same location:{" "}
+        <span className="text-status-warning">{wp.name}</span>.
+      </>
+    );
   }
+
   if (r.same_bank) {
-    reasons.push(`Filed against the same bank (${r.bank_name}) as this complaint.`);
+    reasons.push(
+      <>
+        Filed against the same bank ({" "}
+        <span className="text-status-warning">{r.bank_name}</span>
+        ) as this complaint.
+      </>
+    );
   }
+
   if (reasons.length === 0) {
-    reasons.push("Linked through this case's wider discovered account network.");
+    reasons.push(
+      <>Linked through this case's wider discovered account network.</>
+    );
   }
+
   return reasons;
 }
 
@@ -63,7 +89,7 @@ export default function Overview() {
     [complaint.id]
   );
 
-  const complaintCode = `CMP-${new Date(complaint.filed_at).getFullYear()}-${String(complaint.id).padStart(6, "0")}`;
+  const complaintCode = `CMP-${caseCode(complaint.id)}`;
   const visibleLinked = related ? (showAllLinked ? related.related : related.related.slice(0, LINKED_PREVIEW_COUNT)) : [];
 
   return (
@@ -92,7 +118,7 @@ export default function Overview() {
                     key={r.complaint_id}
                     summary={
                       <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="id-tag font-medium text-ink-primary">#{r.complaint_id}</span>
+                        <span className="id-tag font-medium text-ink-primary">#{caseCode(r.complaint_id)}</span>
                         <span className="id-tag text-ink-muted">
                           ₹{Number(r.amount_lost).toLocaleString("en-IN")} · {new Date(r.filed_at).toLocaleDateString()}
                         </span>
@@ -105,7 +131,7 @@ export default function Overview() {
                         {whyLinkedReasons(r).map((reason, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-series-1" />
-                            {reason}
+                            <span>{reason}</span>
                           </li>
                         ))}
                       </ul>

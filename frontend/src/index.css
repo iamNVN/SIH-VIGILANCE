@@ -34,6 +34,20 @@ body {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 
+/* `color-scheme: dark` on <html> only makes a <select>'s native dropdown
+   render dark when the browser can tell the CONTROL itself is dark -- a
+   `bg-transparent` select (no real background of its own) defeats that
+   heuristic in Chromium and falls back to a plain white popup with black
+   text, verified live on Cases' sort dropdown. Every <option> gets an
+   explicit dark background/foreground here as a floor so this can't
+   regress by way of a future transparent-background select, on top of
+   fixing the specific one seen -- Firefox honors this directly; Chromium
+   mostly infers dark from the select's own opaque background instead. */
+option {
+  background-color: theme("colors.surface.card");
+  color: theme("colors.ink.primary");
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

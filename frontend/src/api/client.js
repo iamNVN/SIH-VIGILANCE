@@ -35,12 +35,14 @@ export const api = {
   stats: (city, signal) => request(`/stats${qs({ city })}`, { signal }),
   statsTimeseries: (days = 7, city, signal) => request(`/stats/timeseries${qs({ days, city })}`, { signal }),
   statsHotspots: (limit = 5, city, signal) => request(`/stats/hotspots${qs({ limit, city })}`, { signal }),
-  listComplaints: (limit = 50, skip = 0, q = "", city, signal) =>
-    request(`/complaints${qs({ limit, skip, q, city })}`, { signal }),
+  listComplaints: (limit = 50, skip = 0, q = "", city, signal, sort) =>
+    request(`/complaints${qs({ limit, skip, q, city, sort })}`, { signal }),
   countComplaints: (q = "", city, signal) => request(`/complaints/count${qs({ q, city })}`, { signal }),
   getComplaint: (id, signal) => request(`/complaints/${id}`, { signal }),
   createComplaint: (payload) =>
     request("/complaints", { method: "POST", body: JSON.stringify(payload) }),
+  decideComplaint: (id, decision) =>
+    request(`/complaints/${id}/decision`, { method: "POST", body: JSON.stringify({ decision }) }),
   predict: (id, signal) => request(`/predict/${id}`, { method: "POST", signal }),
   explain: (id, withdrawalPointId, signal) =>
     request(`/explain/${id}${withdrawalPointId ? `?withdrawal_point_id=${withdrawalPointId}` : ""}`, { signal }),
@@ -51,7 +53,7 @@ export const api = {
   rings: (limit = 50, city, signal) => request(`/rings${qs({ limit, city })}`, { signal }),
   predictionsFeed: (limit = 40, city, signal) => request(`/feed/predictions${qs({ limit, city })}`, { signal }),
   alertsFeed: (limit = 40, city, signal, sort) => request(`/feed/alerts${qs({ limit, city, sort })}`, { signal }),
-  triggerNext: () => request("/stream/trigger-next", { method: "POST" }),
+  triggerNext: (city) => request(`/stream/trigger-next${qs({ city })}`, { method: "POST" }),
   resetStream: () => request("/stream/reset", { method: "POST" }),
-  streamStatus: (signal) => request("/stream/status", { signal }),
+  streamStatus: (city, signal) => request(`/stream/status${qs({ city })}`, { signal }),
 };
