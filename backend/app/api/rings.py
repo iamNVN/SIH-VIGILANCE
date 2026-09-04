@@ -42,6 +42,7 @@ def _compute_rings():
     wpoints_by_id = ds.withdrawal_points.set_index("id")
 
     rings = []
+    complaint_to_ring: dict[int, int] = {}
     for community_id, size in sizes.items():
         if size < 3:
             continue
@@ -95,18 +96,61 @@ def _compute_rings():
             "last_activity": last_activity.isoformat() if last_activity is not None else None,
             "sample_complaint_id": complaint_ids[0],
         })
+        for cid in complaint_ids:
+            complaint_to_ring[cid] = int(community_id)
 
     rings.sort(key=lambda r: r["total_amount_at_risk"], reverse=True)
-    return rings
+    return rings, complaint_to_ring
 
 
 def _cached_rings():
     now = time.time()
     if now - _cache["computed_at"] < _CACHE_TTL_SECONDS:
         return _cache["rings"]
-    rings = _compute_rings()
-    _cache.update({"computed_at": now, "rings": rings})
+    rings, complaint_to_ring = _compute_rings()
+    _cache.update({"computed_at": now, "rings": rings, "complaint_to_ring": complaint_to_ring})
     return rings
+
+
+def get_ring_for_complaint(complaint_id: int) -> Optional[dict]:
+    """complaint_id -> the ring it belongs to, or None -- used by stream.py
+    to log a real "linked to ring" event on reveal (see core/event_log.py),
+    cross-referenced against this same computed structure, not a separate
+    guess."""
+    _cached_rings()  # ensure _cache["complaint_to_ring"] is populated
+    community_id = _cache.get("complaint_to_ring", {}).get(complaint_id)
+    if community_id is None:
+        return None
+    for r in _cache["rings"]:
+        if r["community_id"] == community_id:
+            return r
+    return None
+
+
+_startup_logged = [False]
+
+
+def log_initial_ring_detections():
+    """Called once from main.py's startup pre-warm thread -- logs one real
+    event per detected ring (its actual size/complaint count) so Command
+    Center's Live Investigation Feed has real initial content instead of
+    starting empty. Guarded so this never re-fires on this cache's normal
+    periodic refresh -- the underlying account/transaction graph doesn't
+    change during a session (see this file's module docstring), so there's
+    no genuine "newly detected" moment to log beyond the first one."""
+    if _startup_logged[0]:
+        return
+    _startup_logged[0] = True
+    from core import event_log
+
+    for r in _cached_rings():
+        for city in r["cities_touched"] or [None]:
+            event_log.log_event(
+                "ring_detected",
+                f"Ring R-{r['community_id']:03d} detected",
+                f"{r['size']} accounts · {r['num_complaints']} linked complaints",
+                city,
+            )
 
 
 @router.get("/rings")

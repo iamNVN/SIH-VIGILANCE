@@ -18,7 +18,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from core import dataset_provider
+from core import dataset_provider, event_log
 from core.db import get_db
 from core.model_registry import registry
 from graph_engine.features import ADVANCED_FEATURE_COLUMNS, BASELINE_FEATURE_COLUMNS, build_candidate_features
@@ -124,6 +124,15 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
             },
             "urgency": lift_urgency(confidence, n_candidates),
         })
+
+    if predictions:
+        top = predictions[0]
+        event_log.log_event(
+            "prediction_generated",
+            "Cash-out prediction generated",
+            f"{top['name']} · {round(top['confidence'] * 100, 1)}%",
+            complaint.victim.city if complaint.victim else None,
+        )
 
     true_we = db.query(WithdrawalEvent).filter(WithdrawalEvent.complaint_id == complaint_id).first()
     baseline_comparison = None

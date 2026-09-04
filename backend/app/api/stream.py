@@ -33,13 +33,37 @@ from typing import Optional
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from core import replay_state
+from core import event_log, replay_state
 from core.db import SessionLocal, get_db
 
 from .complaints import _to_out
 from .feed import add_revealed_complaint_to_feed, rebuild_feed_in_background
+from .rings import get_ring_for_complaint
 
 router = APIRouter(tags=["stream"])
+
+
+def _log_reveal_events(complaint):
+    """Real, honestly-timed events for Command Center's Live Investigation
+    Feed (see core/event_log.py) -- logged right as the reveal happens, not
+    backfilled or synthetic. A ring cross-reference (not a fabricated
+    "detected" moment) fires a second event when this complaint happens to
+    belong to an already-known ring."""
+    city = complaint.victim.city if complaint.victim else None
+    event_log.log_event(
+        "complaint_received",
+        "New complaint received",
+        f"₹{complaint.amount_lost:,.0f} · {city or 'Unknown city'}",
+        city,
+    )
+    ring = get_ring_for_complaint(complaint.id)
+    if ring is not None:
+        event_log.log_event(
+            "ring_linked",
+            f"Case #{complaint.id} linked to Ring R-{ring['community_id']:03d}",
+            f"{ring['size']} accounts · {ring['num_complaints']} linked complaints",
+            city,
+        )
 
 
 @router.get("/stream/status")
@@ -57,6 +81,7 @@ def trigger_next(city: Optional[str] = None, db: Session = Depends(get_db)):
     # cache invalidation (which forced whoever's request landed next to pay
     # a ~25-30s recompute of the entire batch just for one new arrival).
     add_revealed_complaint_to_feed(complaint)
+    _log_reveal_events(complaint)
     # `_to_out`, not a bare ComplaintOut.model_validate(complaint): the raw
     # ORM object has no victim_name/victim_city attributes of its own (only
     # a `victim` relationship) -- model_validate left those None, showing
@@ -86,6 +111,7 @@ async def live_complaints(websocket: WebSocket, interval_seconds: float = 3.0):
                 await websocket.send_json({"done": True})
                 break
             add_revealed_complaint_to_feed(complaint)
+            _log_reveal_events(complaint)
             await websocket.send_json({
                 "done": False,
                 "complaint": _to_out(complaint).model_dump(mode="json"),

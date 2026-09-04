@@ -162,6 +162,16 @@ def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = D
 
         remove_complaint_from_feed(complaint_id)
 
+    from core import event_log
+
+    verb = "approved for action" if payload.decision == "approved" else "rejected"
+    event_log.log_event(
+        "decision",
+        f"Case #{complaint_id} {verb}",
+        complaint.victim.city if complaint.victim else "",
+        complaint.victim.city if complaint.victim else None,
+    )
+
     return DecisionOut(status=complaint.status, next_step=_NEXT_STEP[payload.decision].format(bank=complaint.bank_name))
 
 

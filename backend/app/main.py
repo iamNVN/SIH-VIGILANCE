@@ -6,9 +6,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api import brief, complaints, evaluation, explain, feed, graph, predict, rings, stats, stream
+from api import brief, complaints, evaluation, events, explain, feed, graph, predict, rings, stats, stream
 from api.feed import _cached_feed
-from api.rings import _cached_rings
+from api.rings import _cached_rings, log_initial_ring_detections
+from core.activity_simulator import start_simulator
 from core.db import Base, engine
 from core.model_registry import registry
 from graph_engine.features import NoKnownTransactionChain
@@ -48,6 +49,12 @@ def on_startup():
         if registry.ready:
             _cached_feed()
         _cached_rings()
+        log_initial_ring_detections()
+        # Only after the caches above are warm -- the simulator's
+        # "prediction"/"ring_found" events read from them directly (see
+        # activity_simulator.py) and need real data to sample from from
+        # its very first tick, not an empty cache.
+        start_simulator()
 
     threading.Thread(target=_warm_caches, daemon=True).start()
 
@@ -75,3 +82,4 @@ app.include_router(stats.router)
 app.include_router(stream.router)
 app.include_router(rings.router)
 app.include_router(feed.router)
+app.include_router(events.router)

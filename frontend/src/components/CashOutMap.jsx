@@ -68,7 +68,7 @@ function FitBounds({ predictions }) {
   return null;
 }
 
-export default function CashOutMap({ predictions, height = 420 }) {
+export default function CashOutMap({ predictions, height = 420, hideLegend = false }) {
   const center = useMemo(() => {
     if (!predictions || predictions.length === 0) return [20.5937, 78.9629]; // India centroid fallback
     return [predictions[0].lat, predictions[0].lon];
@@ -136,16 +136,19 @@ export default function CashOutMap({ predictions, height = 420 }) {
           </Fragment>
         ))}
       </MapContainer>
-      <MapLegend />
+      {!hideLegend && <MapLegend />}
     </div>
   );
 }
 
 // A floating control anchored inside the map itself (matches how real GIS
 // tools place a legend), not a separate list living below it -- so it's
-// visible on every map that uses this component (Command Center's hotspots
-// panel, a case's own Cash-out Map tab, the case workspace's inline map),
-// not just the one place a caller remembered to render a below-map list.
+// visible on every map that uses this component (a case's own Cash-out Map
+// tab, the case workspace's inline map), not just the one place a caller
+// remembered to render a below-map list. Command Center's hotspots panel
+// opts out (`hideLegend`) and renders `CashOutMapLegend` below the map
+// instead -- that map is short and narrow enough that the floating box
+// overlapped its own percentage labels.
 function MapLegend() {
   const items = [
     { color: URGENCY_COLOR.HIGH, label: "High risk" },
@@ -166,6 +169,32 @@ function MapLegend() {
         <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold text-ink-secondary">%</span>
         <span>share of cases picking this spot</span>
       </div>
+    </div>
+  );
+}
+
+// A below-map, horizontal presentation of the same legend -- for callers
+// like Command Center's hotspots panel that opt out of the floating
+// in-map version (`hideLegend`) because their map is too small/narrow for
+// it not to overlap the map's own percentage labels.
+export function CashOutMapLegend() {
+  const items = [
+    { color: URGENCY_COLOR.HIGH, label: "High risk" },
+    { color: URGENCY_COLOR.MEDIUM, label: "Medium risk" },
+    { color: URGENCY_COLOR.LOW, label: "Low risk" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ink-muted">
+      {items.map((item) => (
+        <span key={item.label} className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: item.color }} />
+          {item.label}
+        </span>
+      ))}
+      <span className="flex items-center gap-1.5">
+        <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold text-ink-secondary">%</span>
+        share of cases picking this spot
+      </span>
     </div>
   );
 }

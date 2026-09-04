@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Calendar,
+  ChevronDown,
   Clock,
   ExternalLink,
   FileText,
@@ -10,29 +11,47 @@ import {
   Share2,
   Shield,
   X,
+  Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { ConfidenceBadge, UrgencyBadge } from "../components/Badges";
-import CashOutMap, { URGENCY_COLOR } from "../components/CashOutMap";
+import CashOutMap, { CashOutMapLegend, URGENCY_COLOR } from "../components/CashOutMap";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
 import { caseCode } from "../utils/caseCode";
 
 const IST = "Asia/Kolkata";
-const AXIS_STYLE = { fontSize: 11, fill: "#898781" };
+
+// The 5 cities this dataset actually covers (see data/generator's
+// AREAS_BY_CITY) -- used only to let an administrator (city=null,
+// national scope) drill the hotspots panel into one city, matching the
+// picker in the reference design. An investigator already has a single,
+// fixed jurisdiction (enforced server-side, see stats.py's docstring), so
+// they get a plain label here instead of a control that can't do anything.
+const ALL_CITIES = ["Bengaluru", "Chennai", "Delhi", "Hyderabad", "Mumbai"];
+
+// One dot color per real event type (see backend/app/core/event_log.py's
+// docstring for what's genuinely logged vs simulated) -- "decision" is
+// resolved to good/critical at render time based on the actual outcome
+// word in its message, not a fixed color, since one event type covers both
+// approve and reject.
+const EVENT_COLOR = {
+  complaint_received: "#3b82f6", // series-1
+  ring_linked: "#9085e9", // series-7
+  prediction_generated: "#199e70", // series-3
+  ring_detected: "#c98500", // series-4
+};
+
+function eventColor(event) {
+  if (event.type === "decision") {
+    return event.message.toLowerCase().includes("rejected") ? "#d03b3b" : "#0ca30c";
+  }
+  return EVENT_COLOR[event.type] || "#6b7280";
+}
 
 function money(n) {
   return `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -93,11 +112,16 @@ export default function CommandCenter() {
   const { user } = useAuth();
   const city = user?.city || null;
   const now = useLiveClock();
-  const [days, setDays] = useState(7);
+  // Administrators (city=null) can drill the hotspots panel into one city
+  // (matching the reference design's city picker); an investigator already
+  // has one fixed jurisdiction, so this just starts on it and never
+  // changes for them (no dropdown rendered -- see the panel below).
+  const [hotspotCity, setHotspotCity] = useState(city || ALL_CITIES[0]);
 
-  const { data: stats, loading: statsLoading, reload: reloadStats } = useApi((signal) => api.stats(city, signal), [city]);
-  const { data: timeseries, reload: reloadTimeseries } = useApi((signal) => api.statsTimeseries(days, city, signal), [days, city]);
-  const { data: hotspotsData, reload: reloadHotspots } = useApi((signal) => api.statsHotspots(5, city, signal), [city]);
+  const { data: stats, reload: reloadStats } = useApi((signal) => api.stats(city, signal), [city]);
+  const { data: eventsData, reload: reloadEvents } = useApi((signal) => api.events(city, 30, signal), [city]);
+  const [showAllEvents, setShowAllEvents] = useState(false);
+  const { data: hotspotsData, reload: reloadHotspots } = useApi((signal) => api.statsHotspots(5, hotspotCity, signal), [hotspotCity]);
   const { data: recentAlerts, loading: alertsLoading, reload: reloadAlerts } = useApi(
     (signal) => api.alertsFeed(5, city, signal, "recent"),
     [city]
@@ -110,12 +134,21 @@ export default function CommandCenter() {
 
   const reloadEverything = () => {
     reloadStats();
-    reloadTimeseries();
+    reloadEvents();
     reloadHotspots();
     reloadAlerts();
     reloadRings();
     reloadStreamStatus();
   };
+
+  // The Live Investigation Feed is meant to feel like it's actually
+  // running, not just refresh on Simulate Complaint -- a real prediction or
+  // decision made elsewhere (another investigator's tab, in a real
+  // deployment) should show up here without the viewer doing anything.
+  useEffect(() => {
+    const t = setInterval(reloadEvents, 6000);
+    return () => clearInterval(t);
+  }, [reloadEvents]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -168,11 +201,8 @@ export default function CommandCenter() {
     [hotspots, hotspotsData?.n_cases]
   );
 
-  const chartData = (timeseries?.days || []).map((d) => ({
-    date: new Date(d.date).toLocaleDateString("en-IN", { timeZone: IST, month: "short", day: "numeric" }),
-    "Total Complaints": d.total_complaints,
-    "High Risk Complaints": d.high_risk_complaints,
-  }));
+  const events = eventsData?.events || [];
+  const visibleEvents = showAllEvents ? events : events.slice(0, 6);
 
   return (
     <div className="mx-auto max-w-7xl px-8 py-8">
@@ -306,90 +336,148 @@ export default function CommandCenter() {
         <StatCard icon={IndianRupee} iconBg="bg-status-warning/15" iconColor="text-status-warning" label="Amount at Risk" value={stats?.total_amount_at_risk} format={money} delay={0.09} />
       </div>
 
-      {/* Charts row -- same 2-column template as the tables row below so
-          "Complaints Over Time" lines up with "Recent High Risk
-          Complaints", and the hotspots map lines up with "Active Fraud
-          Rings". */}
+      {/* Middle section -- Predicted Cash-out Hotspots (map + ranked list
+          side by side) and the Live Investigation Feed, replacing the old
+          "Complaints Over Time" line chart: with this dataset's small,
+          synthetic complaint volume that chart's day-to-day line
+          (0→4→3→0→4→0→2) didn't communicate anything -- these two panels
+          are directly about the same cash-out intelligence the rest of
+          this screen is for. */}
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card flex flex-col p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink-primary">Complaints Over Time</h2>
-            <select
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="rounded-md border border-surface-border bg-surface-raised px-2 py-1 text-xs text-ink-secondary focus:outline-none"
-            >
-              <option value={7}>Last 7 Days</option>
-              <option value={14}>Last 14 Days</option>
-              <option value={30}>Last 30 Days</option>
-            </select>
-          </div>
-          {chartData.length > 0 ? (
-            // flex-1, not a fixed height: this card sits in a grid row next
-            // to the (taller) hotspots panel, so the grid stretches this
-            // card's height to match -- flex-1 lets the chart actually fill
-            // that stretched space instead of staying pinned to a fixed
-            // pixel height and leaving the rest as empty space below it.
-            <div className="min-h-[260px] flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2a" vertical={false} />
-                  <XAxis dataKey="date" tick={AXIS_STYLE} stroke="#383835" />
-                  <YAxis tick={AXIS_STYLE} stroke="#383835" allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: "#161615", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, fontSize: 12 }}
-                    labelStyle={{ color: "#ffffff" }}
-                  />
-                  <Line type="monotone" dataKey="Total Complaints" stroke="#3987e5" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="High Risk Complaints" stroke="#e66767" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <LoadingSpinner label="Loading trend…" />
-          )}
-          <div className="mt-2 flex items-center gap-4 text-xs text-ink-muted">
-            <span className="flex items-center gap-1.5"><span className="h-0.5 w-4 rounded-full bg-series-1" /> Total Complaints</span>
-            <span className="flex items-center gap-1.5">
-              <span className="block w-4" style={{ borderTop: "2px dashed #e66767" }} /> High Risk Complaints
-            </span>
-          </div>
-        </div>
-
         <div className="card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink-primary">Top Predicted Cash-out Hotspots</h2>
-            <button
-              onClick={() => navigate("/predictions")}
-              className="flex items-center gap-1 text-xs font-medium text-series-1 hover:text-series-1/80"
-            >
-              View Full Map <ExternalLink className="h-3 w-3" strokeWidth={2} />
-            </button>
+          <div className="mb-1 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-series-1/15">
+                <MapPin className="h-4 w-4 text-series-1" strokeWidth={2} />
+              </div>
+              <h2 className="text-sm font-semibold text-ink-primary">Predicted Cash-out Hotspots</h2>
+            </div>
+            {/* Only an administrator (national scope) gets a real picker --
+                an investigator's jurisdiction is fixed server-side (see
+                stats.py's docstring), so a dropdown that can't change
+                anything would just be misleading chrome. */}
+            {city ? (
+              <span className="id-tag shrink-0 rounded-sm bg-white/5 px-2 py-1 text-xs font-medium text-ink-secondary">{city}</span>
+            ) : (
+              <div className="relative shrink-0">
+                <select
+                  value={hotspotCity}
+                  onChange={(e) => setHotspotCity(e.target.value)}
+                  className="appearance-none rounded-md border border-surface-border bg-surface-raised py-1 pl-2.5 pr-7 text-xs font-medium text-ink-secondary focus:outline-none"
+                >
+                  {ALL_CITIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-muted" strokeWidth={2} />
+              </div>
+            )}
           </div>
+          <p className="mb-3 text-xs text-ink-muted">Top locations where stolen funds are likely to be withdrawn.</p>
+
           {hotspots.length > 0 ? (
             <>
-              <CashOutMap predictions={hotspotPredictions} height={220} />
-              <ul className="mt-3 space-y-1 border-t border-surface-border pt-3">
-                {hotspots.map((h, i) => {
-                  const urgency = hotspotPredictions[i]?.urgency;
-                  const color = URGENCY_COLOR[urgency] || URGENCY_COLOR.LOW;
-                  return (
-                    <li key={h.name} className="flex items-center gap-2 text-xs">
-                      <span
-                        className="id-tag flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold"
-                        style={{ background: `${color}33`, color }}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-ink-secondary">{h.name}</span>
-                      <span className="id-tag shrink-0 font-semibold" style={{ color }}>{h.share_pct}%</span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1.3fr_1fr]">
+                <div>
+                  <CashOutMap predictions={hotspotPredictions} height={240} hideLegend />
+                  <p className="mt-2 text-[11px] text-ink-muted">Larger circle = higher probability</p>
+                  <div className="mt-2 border-t border-surface-border pt-2">
+                    <CashOutMapLegend />
+                  </div>
+                </div>
+
+                <div className="flex flex-col">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Top Predicted Locations</h3>
+                  <ul className="flex-1 space-y-2">
+                    {hotspots.map((h, i) => {
+                      const urgency = hotspotPredictions[i]?.urgency;
+                      const color = URGENCY_COLOR[urgency] || URGENCY_COLOR.LOW;
+                      const [place, ...rest] = h.name.split(", ");
+                      const area = rest.join(", ");
+                      return (
+                        <li key={h.name} className="flex items-center gap-2.5">
+                          <span
+                            className="id-tag flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-xs font-bold"
+                            style={{ background: `${color}26`, color }}
+                          >
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-ink-primary">{place}</p>
+                            {area && <p className="truncate text-xs text-ink-muted">{area}</p>}
+                          </div>
+                          <span className="id-tag shrink-0 text-sm font-semibold" style={{ color }}>{h.share_pct}%</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <button
+                    onClick={() => navigate("/maps")}
+                    className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-series-1 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600"
+                  >
+                    View Full Map <ExternalLink className="h-3 w-3" strokeWidth={2} />
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <LoadingSpinner label="Aggregating hotspots…" />
+          )}
+        </div>
+
+        <div className="card flex flex-col p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-status-good/15">
+                <Zap className="h-4 w-4 text-status-good" strokeWidth={2} />
+              </div>
+              <h2 className="text-sm font-semibold text-ink-primary">Live Investigation Feed</h2>
+            </div>
+            <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-status-good/15 px-2.5 py-1 text-[11px] font-semibold text-status-good">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-good" />
+              </span>
+              Live
+            </span>
+          </div>
+
+          {/* Every entry below is a real, timestamped thing that actually
+              happened in this backend process (see core/event_log.py) --
+              never a synthetic timeline. Between real user actions,
+              core/activity_simulator.py keeps this moving on a synthetic
+              cadence, but always built from real sampled data (a real
+              complaint's amount/city, a real cached prediction, a real
+              detected ring's stats). */}
+          <div className="min-h-[260px] flex-1">
+            {events.length === 0 ? (
+              <LoadingSpinner label="Loading activity…" />
+            ) : (
+              <ul className="divide-y divide-white/5">
+                {visibleEvents.map((ev) => (
+                  <li key={ev.id} className="flex gap-3 py-2.5 first:pt-0">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: eventColor(ev) }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-baseline gap-2">
+                        <span className="id-tag shrink-0 text-xs font-semibold text-ink-primary">
+                          {new Date(ev.timestamp).toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })}
+                        </span>
+                        <span className="min-w-0 truncate text-sm font-medium text-ink-primary">{ev.message}</span>
+                      </p>
+                      {ev.detail && <p className="mt-0.5 truncate text-xs text-ink-muted">{ev.detail}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {events.length > 6 && (
+            <button
+              onClick={() => setShowAllEvents((v) => !v)}
+              className="mt-3 flex items-center gap-1 border-t border-surface-border pt-3 text-xs font-medium text-series-1 hover:text-series-1/80"
+            >
+              {showAllEvents ? "Show fewer" : "View All Activity"} <ExternalLink className="h-3 w-3" strokeWidth={2} />
+            </button>
           )}
         </div>
       </div>
