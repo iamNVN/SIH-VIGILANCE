@@ -179,7 +179,7 @@ export default function CommandCenter() {
       {/* Header: title/subtitle left, live status + actions right */}
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
             <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
               {city ? `${city} only` : "All India"}
@@ -203,9 +203,9 @@ export default function CommandCenter() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {streamStatus && (
+            {/* {streamStatus && (
               <span className="id-tag text-xs text-ink-muted">{streamStatus.revealed} / {streamStatus.total} arrived</span>
-            )}
+            )} */}
             <button
               onClick={handleTrigger}
               disabled={triggering || streamStatus?.done}
