@@ -11,6 +11,7 @@ this synthetic dataset's June-August 2026 window is meaningless -- see
 core/dataset_provider.py's docstring).
 """
 
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -28,6 +29,24 @@ router = APIRouter(tags=["predict"])
 
 TOP_K = 5
 
+# A real, honestly-labeled usage counter -- not a fabricated "Predictions
+# Today" number. In-memory, keyed by real (not the dataset's fictional
+# June-Aug 2026) UTC calendar date, so it resets whenever the backend
+# restarts and never claims history it doesn't have. The complaints being
+# scored carry fictional filed_at dates, but the act of *querying* a
+# prediction happens at real wall-clock time, which is what this counts.
+_predictions_served_by_date: dict[str, int] = defaultdict(int)
+
+
+def record_prediction_served():
+    today = datetime.now(timezone.utc).date().isoformat()
+    _predictions_served_by_date[today] += 1
+
+
+def predictions_served_today() -> int:
+    today = datetime.now(timezone.utc).date().isoformat()
+    return _predictions_served_by_date.get(today, 0)
+
 
 def _complaint_row(complaint: Complaint) -> pd.Series:
     return pd.Series({
@@ -39,10 +58,22 @@ def _complaint_row(complaint: Complaint) -> pd.Series:
     })
 
 
-def _urgency(rank: int, confidence: float) -> str:
-    if rank == 1 and confidence >= 0.5:
+def lift_urgency(confidence: float, n_candidates: int) -> str:
+    # Absolute-confidence thresholds (e.g. "HIGH if >= 0.5") don't work here:
+    # with ~40 candidates per city and a calibrated model, top-pick confidence
+    # rarely exceeds ~20-25% even for the model's best, most confident calls
+    # (see Analytics -- Precision@1 is real and modest) -- an 0.5 bar meant
+    # every complaint landed on "MEDIUM" forever, regardless of how much
+    # better than chance the top pick actually was. Lift over random chance
+    # among THIS complaint's own candidates is the comparable signal across
+    # cities/complaints with different candidate-set sizes. Shared with
+    # feed.py so the single-case view and the cross-case feed agree.
+    if n_candidates <= 0:
+        return "LOW"
+    lift = confidence / (1 / n_candidates)
+    if lift >= 5:
         return "HIGH"
-    if rank <= 2:
+    if lift >= 2:
         return "MEDIUM"
     return "LOW"
 
@@ -56,6 +87,7 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
     if complaint is None:
         raise HTTPException(404, f"complaint {complaint_id} not found")
 
+    record_prediction_served()
     ds = dataset_provider.get_dataset()
     complaint_row = _complaint_row(complaint)
     candidates = build_candidate_features(ds, complaint_row)
@@ -64,6 +96,7 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
     candidates["advanced_prob"] = registry.advanced_calibrated.predict_proba(candidates[ADVANCED_FEATURE_COLUMNS])[:, 1]
     candidates = candidates.sort_values("advanced_prob", ascending=False).reset_index(drop=True)
 
+    n_candidates = len(candidates)
     top = candidates.head(TOP_K)
     predictions = []
     for rank, (_, row) in enumerate(top.iterrows(), start=1):
@@ -89,7 +122,7 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
                 "top_features": explanation["top_features"],
                 "narrative": narrative,
             },
-            "urgency": _urgency(rank, confidence),
+            "urgency": lift_urgency(confidence, n_candidates),
         })
 
     true_we = db.query(WithdrawalEvent).filter(WithdrawalEvent.complaint_id == complaint_id).first()
@@ -111,5 +144,5 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
         # How many cash-out points were actually scored for this complaint --
         # lets the UI show confidence relative to random chance (1/n_candidates)
         # instead of a bare percentage that reads as low in isolation.
-        "n_candidates": int(len(candidates)),
+        "n_candidates": int(n_candidates),
     }

@@ -1,6 +1,6 @@
 import L from "leaflet";
 import { Fragment, useEffect, useMemo } from "react";
-import { Circle, CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
+import { Circle, CircleMarker, MapContainer, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
 import { ConfidenceBadge, UrgencyBadge } from "./Badges";
 
 // Leaflet's default marker icon assets don't resolve correctly through
@@ -99,6 +99,9 @@ export default function CashOutMap({ predictions, height = 420 }) {
                 fillOpacity: 0.9,
               }}
             >
+              <Tooltip permanent direction="top" offset={[0, -6]} className="cashout-label">
+                {Math.round(p.confidence * 100)}%
+              </Tooltip>
               <Popup>
                 <div className="min-w-[200px] space-y-1">
                   <p className="font-semibold">#{p.rank} · {p.name}</p>
@@ -111,6 +114,28 @@ export default function CashOutMap({ predictions, height = 420 }) {
           </Fragment>
         ))}
       </MapContainer>
+    </div>
+  );
+}
+
+export function CashOutMapLegend() {
+  const items = [
+    { color: URGENCY_COLOR.HIGH, label: "High risk" },
+    { color: URGENCY_COLOR.MEDIUM, label: "Medium risk" },
+    { color: URGENCY_COLOR.LOW, label: "Low risk" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-muted">
+      {items.map((item) => (
+        <span key={item.label} className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
+          {item.label}
+        </span>
+      ))}
+      <span className="flex items-center gap-1.5">
+        <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold">%</span>
+        share of scored cases with this top pick
+      </span>
     </div>
   );
 }

@@ -27,6 +27,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/build/
 frontend/.vite/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 node_modules/
 *.log
 npm-debug.log*

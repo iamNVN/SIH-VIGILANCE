@@ -214,7 +214,7 @@ thing that changes — see `backend/app/core/config.py`.
    Section 24) — the full WebSocket auto-replay path is written
    (`GET /stream/live-complaints`) but not yet exercised end-to-end with a real client.
 
-## What's NOT started yet
+## What's NOT started yet (as of the original session above — superseded, see below)
 - NLP entity extraction (regex/spaCy) on narrative text — out of today's scope, still
   open per the original list.
 - Frontend (React dashboard, 8 screens) — explicitly deferred, backend-only today.
@@ -222,3 +222,156 @@ thing that changes — see `backend/app/core/config.py`.
   yet tested with an actual WebSocket client end-to-end.
 - Docker/Postgres path: written, not runnable/tested in this environment (no Docker
   install) — SQLite path is what's actually been verified.
+
+---
+
+## Session update — 2026-09-03: frontend built, RBAC added, two real model bugs fixed
+
+Everything in "What's NOT started yet" above is now stale — the frontend exists (React
+18 + Vite + Tailwind, dark theme), NLP entity extraction exists (`nlp/entity_extraction.py`,
+regex-only bank/IFSC/amount), and RBAC (data-scoped, not just cosmetic) has been added.
+Docker/Postgres remains untested — still no Docker on this machine.
+
+### Frontend (new)
+Full dashboard covering the Blueprint's screens: **Command Center** (stats + paginated
+complaint list), **Cases** (dedicated searchable browser), **Network Graph** (`/rings` —
+Louvain communities with ≥3 accounts, real derived stats per ring), **Predictions** /
+**Alerts** (cross-case top-1 feed, batch-scored), **Reports** (administrator-only —
+real evaluation numbers), **Settings** (session + live model metadata), and per-case
+**Case Workspace** with 4 tabs (Case File, Fund-Flow Trace, Cash-Out Prediction,
+Intervention Brief). Demo-mode persona picker (4 personas, `frontend/src/auth/
+AuthContext.jsx`), no real authentication — disclosed on the login screen itself.
+
+### RBAC — real, server-enforced, not cosmetic
+Each investigator persona carries a `city` (Ananya Iyer → Bengaluru, Rahul Verma →
+Chennai); administrator personas carry `city: null` (national scope). This is enforced
+**server-side**: `GET /complaints`, `/complaints/count`, `/stats`, `/rings`,
+`/feed/predictions`, `/feed/alerts` all accept and apply a `city` filter, joining
+through `Victim.city`. Reports/`/analytics` is gated to `role: administrator` both in
+the sidebar nav and via a route-level guard (`ProtectedRoute`'s `roles` prop) — an
+investigator hitting the URL directly gets redirected home, not just a hidden nav link.
+Caveat carried over from `AuthContext.jsx`'s own docstring: the persona itself is
+self-declared via a picker, not authenticated — this is jurisdiction-scoped **data
+access** for a demo, not production-grade security. A case outside an investigator's
+city is still reachable by direct link/ID and shows a visible "outside your assigned
+jurisdiction" banner rather than being hard-blocked.
+
+### Bug: predicted cash-out points landing in the sea
+`generate_withdrawal_points` originally jittered lat/lon uniformly (±0.12°, ~13km)
+around each city's single center coordinate. For coastal cities (Chennai, Mumbai) this
+routinely placed points in open water — confirmed on the live map, not theoretical.
+A per-city rectangular "safe box" was tried first and was insufficient (real
+coastlines aren't rectangles). **Fixed properly**: `AREAS_BY_CITY` in
+`generate_synthetic_data.py` now holds 20 real, named, verified-inland localities per
+city (e.g. Chennai: T Nagar, Porur, Velachery, Adyar, Mylapore, Nungambakkam, ...);
+every withdrawal point is placed at one of these ± a ~300m jitter, never around a raw
+city-center point. `per_city` withdrawal points (still 40) are now real places, not
+arbitrary coordinates.
+
+### Bug: prediction confidence collapsed to near-identical low values
+Reported as "confidence is under 20% almost always, doesn't vary case to case." Root
+cause was **two compounding issues**, not one:
+1. **Isotonic calibration** (`ml/calibration.py`) is non-parametric and needs a large
+   sample to produce a smooth curve. The calibration split holds out ~20% of train
+   complaints (~110 complaints, ~4-5k candidate rows, only ~110 positives) — too few
+   for isotonic, which collapsed into a handful of flat plateaus (verified: complaints
+   #1, #50, #300, #400, #500 all output the *exact same* 0.0795, regardless of how
+   different their real evidence was). **Fixed**: switched `method="isotonic"` →
+   `method="sigmoid"` (Platt scaling) — the standard recommendation below ~1000
+   calibration samples, fits a smooth 2-parameter logistic curve instead of a step
+   function.
+2. The real-locations fix above (10 areas/city at the time) reduced geographic
+   variety among candidates in the same city, muting the model's distinguishing
+   signal. **Fixed**: expanded to 20 areas/city (see above) — enough spread to restore
+   signal without reintroducing the coastline bug.
+
+Verified impact: distinct confidence values across 100 open cases went from **2 → 94**
+(this was the real headline bug — the model was barely distinguishing between
+different cases at all, not just "outputting modest numbers"). Confidence range for
+the same sample went from capped-under-10% to spanning up to ~19-20%+ where evidence
+supports it.
+
+### Current real evaluation numbers (temporal split, 552 train / 138 test complaints,
+seed=42 — supersedes the table earlier in this file, which predates both fixes above)
+
+| Metric | Baseline (RF, tabular-only) | Advanced (XGBoost, fused) |
+|---|---|---|
+| Precision@1 | 0.043 | **0.174** |
+| Precision@5 (=Recall@5) | 0.123 | **0.486** |
+| Hit-rate within 2km @5 | 0.239 | **0.580** |
+| Mean rank of true point | 18.83 | **10.41** |
+| Brier score (lower=better) | 0.0244 | **0.0236** |
+
+Lift: **advanced Precision@5 − baseline Precision@5 = +0.362**. Lead time (121
+actionable test complaints): mean 4.45h / median 4.46h available to act; 5.02h mean
+when the top-5 actually contains the true point. Full report:
+`backend/app/ml/artifacts/evaluation_report.json`.
+
+### New backend endpoints (frontend-driving, all real data, no mocks)
+`GET /rings[?city=]`, `GET /rings/{community_id}`, `GET /feed/predictions[?city=]`,
+`GET /feed/alerts[?city=]` (cross-case batch scoring — shares one `as_of` snapshot
+across the whole batch instead of one per complaint, since per-complaint `as_of`
+values each forced a separate graph+community rebuild and made this endpoint take
+30s+ for just 10 complaints; batched, ~0.9s for 40), `GET /complaints/count[?q=&city=]`,
+`GET /system/info` (live model metadata for the Settings page).
+
+### Known, not yet addressed
+- No automated test suite exists anywhere in the repo (backend or frontend).
+- A backend process from an earlier session got orphaned on port 8000 and could not be
+  killed through any available channel on this machine (`Get-Process`/`taskkill`/
+  `Stop-Process` all report "no such process" for the PID that Windows' own
+  `Get-NetTCPConnection` says owns the socket — a genuine OS-level inconsistency, not
+  something fixable from inside a shell session). Worked around by running the backend
+  on **port 8001** instead, with `frontend/vite.config.js`'s proxy pointed there. A
+  machine reboot would very likely clear the original zombie and allow reverting to
+  port 8000 — not yet done.
+- Docker/Postgres path: still written, still untested (no Docker install here).
+
+---
+
+## Session update — 2026-09-03 (cont'd): test coverage, urgency-threshold fix, cleanup
+
+### Bug: single-case urgency badge stuck on "MEDIUM" forever
+`api/predict.py`'s `_urgency()` classified HIGH as "rank 1 AND confidence >= 0.5" --
+with ~40 candidates/city and a properly calibrated model (see the calibration fix
+above), top-pick confidence realistically tops out around 20-25%, so that branch could
+never fire. Every complaint's top prediction showed "MEDIUM" risk, regardless of how
+strong or weak the actual evidence was -- verified across 8 complaints, all "MEDIUM."
+**Fixed**: replaced with the same lift-over-random-chance classification `feed.py`
+already used for Alerts/Predictions (renamed to the shared `lift_urgency()`, now
+imported by `feed.py` instead of duplicated) -- 5x+ lift = HIGH, 2-5x = MEDIUM, <2x =
+LOW. Verified: the same 8 complaints now show a genuine mix of HIGH/MEDIUM/LOW, and the
+live UI's risk badge actually turns red (HIGH) for well-evidenced cases.
+
+### Test coverage added (there was none before this)
+- **Backend** (`backend/app/tests/`, run with `cd backend/app && pytest`): 23 tests
+  against the real seeded DB and real trained models, no mocks --
+  `test_no_leakage.py` (guards the project's most important invariant: `ring_id`/
+  `account_type` must never appear in either feature-column list), `test_predict.py`
+  (smoke tests + a regression guard recreating the exact #745 "no transaction chain"
+  bug and confirming it 422s cleanly, with DB cleanup so the test doesn't leave its own
+  stray row), `test_graph.py` (guards the "thousands of dots" bug -- asserts the node
+  cap actually holds), `test_rbac.py` (city-scoping is real, hits the filtered
+  endpoints directly), `test_rings.py`, `test_evaluation_floor.py` (a floor, not an
+  exact-match pin, against the current real evaluation numbers regressing toward
+  random-chance performance on a future retrain).
+- **Frontend** (`frontend/tests/e2e/golden-path.spec.js`, run with `npm run test:e2e`):
+  one Playwright E2E spec covering the actual demo walkthrough -- login, city-scoped
+  Command Center, every sidebar page, all 4 case tabs, RBAC route guard on `/analytics`.
+  Doubles as the rehearsed "golden path" demo script.
+
+### `backup_demo.mp4` now exists
+A real screen recording (not fabricated) of the golden-path E2E spec actually running
+against the live app, captured via Playwright's video recorder and transcoded to mp4
+with ffmpeg. Regenerate anytime with `cd frontend && npx playwright test --grep
+golden-path` after temporarily setting `video: "on"` in `playwright.config.js` (left at
+`"retain-on-failure"` by default so routine runs don't produce one every time).
+
+### Repo cleanup
+Removed `msg.txt` (stray commit-message scratch file) and `run_filter.sh` (an untracked
+`git filter-branch` script that rewrote commit dates repo-wide across all of history --
+confirmed with the user it wasn't needed, deleted rather than left sitting somewhere it
+could be run by accident). `.gitignore` extended to cover `frontend/.vite/`,
+`frontend/test-results/`, `frontend/playwright-report/`, log files, and
+`.claude/scheduled_tasks.lock` (was accidentally committed -- machine-local runtime
+state, not shared config).

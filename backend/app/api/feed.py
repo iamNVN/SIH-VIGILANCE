@@ -7,6 +7,7 @@ and Predictions (the full ranked feed) -- both real model output, cached
 briefly like /stats and /rings.
 """
 
+import threading
 import time
 from typing import Optional
 
@@ -15,34 +16,26 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from core import dataset_provider
+from core import dataset_provider, replay_state
 from core.db import SessionLocal
 from core.model_registry import registry
 from graph_engine.features import ADVANCED_FEATURE_COLUMNS, build_candidate_features
 from models import Complaint
 
-from .predict import _complaint_row
+from .predict import _complaint_row, lift_urgency
 
 router = APIRouter(tags=["feed"])
 
 _CACHE_TTL_SECONDS = 30
 _cache = {"computed_at": 0.0, "feed": []}
-
-
-def _lift_urgency(confidence: float, n_candidates: int) -> str:
-    # Raw confidence rarely crosses 50% here (see Analytics -- Precision@1 is
-    # real and modest), so classifying urgency by absolute confidence would
-    # make this feed permanently empty. Lift over random chance among this
-    # complaint's own candidates is the honest, comparable signal across
-    # cases with different candidate-set sizes.
-    if n_candidates <= 0:
-        return "LOW"
-    lift = confidence / (1 / n_candidates)
-    if lift >= 5:
-        return "HIGH"
-    if lift >= 2:
-        return "MEDIUM"
-    return "LOW"
+# Command Center's first load fires several requests that all depend on
+# this same feed (stats' high_risk_cases, hotspots, alerts, predictions)
+# roughly simultaneously. Without a lock, a cold cache means each of those
+# independently pays the full ~5-6s batch-scoring cost in parallel instead
+# of one paying it while the rest wait -- verified: this is exactly what
+# made Command Center's cards/panels appear at wildly different times on
+# first load.
+_lock = threading.Lock()
 
 
 def _compute_feed(limit_complaints: int = 150):
@@ -51,8 +44,12 @@ def _compute_feed(limit_complaints: int = 150):
 
     db: Session = SessionLocal()
     try:
+        watermark = replay_state.get_live_watermark(db)
         complaints = db.execute(
-            select(Complaint).where(Complaint.status == "open").order_by(Complaint.filed_at.desc()).limit(limit_complaints)
+            select(Complaint)
+            .where(Complaint.status == "open", Complaint.filed_at <= watermark)
+            .order_by(Complaint.filed_at.desc())
+            .limit(limit_complaints)
         ).scalars().all()
         if not complaints:
             return []
@@ -94,9 +91,11 @@ def _compute_feed(limit_complaints: int = 150):
                 "filed_at": complaint.filed_at.isoformat(),
                 "top_prediction": {
                     "name": top["name"],
+                    "lat": float(top["lat"]),
+                    "lon": float(top["lon"]),
                     "confidence": round(confidence, 4),
                     "n_candidates": n_candidates,
-                    "urgency": _lift_urgency(confidence, n_candidates),
+                    "urgency": lift_urgency(confidence, n_candidates),
                 },
             })
 
@@ -110,9 +109,32 @@ def _cached_feed():
     now = time.time()
     if now - _cache["computed_at"] < _CACHE_TTL_SECONDS:
         return _cache["feed"]
-    feed = _compute_feed()
-    _cache.update({"computed_at": now, "feed": feed})
-    return feed
+
+    with _lock:
+        # Re-check inside the lock: whoever was first through already
+        # refreshed the cache while we were waiting for it.
+        now = time.time()
+        if now - _cache["computed_at"] < _CACHE_TTL_SECONDS:
+            return _cache["feed"]
+        feed = _compute_feed()
+        _cache.update({"computed_at": time.time(), "feed": feed})
+        return feed
+
+
+def cached_feed_if_warm():
+    """Like `_cached_feed()` but never triggers the expensive computation --
+    returns the cached feed if it's fresh, else None. For callers (like
+    /stats) that want this data ONLY if it's already cheap to get."""
+    if time.time() - _cache["computed_at"] < _CACHE_TTL_SECONDS:
+        return _cache["feed"]
+    return None
+
+
+def invalidate_feed_cache():
+    """Called by stream.py right after Simulate Complaint reveals one --
+    without this, the dashboard would keep showing the pre-reveal state for
+    up to _CACHE_TTL_SECONDS, making the button feel like it did nothing."""
+    _cache["computed_at"] = 0.0
 
 
 @router.get("/feed/predictions")
@@ -124,9 +146,18 @@ def predictions_feed(limit: int = 40, city: Optional[str] = None):
 
 
 @router.get("/feed/alerts")
-def alerts_feed(limit: int = 40, city: Optional[str] = None):
+def alerts_feed(limit: int = 40, city: Optional[str] = None, sort: str = "confidence"):
     items = _cached_feed()
     if city:
         items = [it for it in items if it["victim_city"] == city]
     high = [it for it in items if it["top_prediction"]["urgency"] == "HIGH"]
-    return {"items": high[: min(limit, 100)]}
+    if sort == "recent":
+        # Command Center's "Recent High Risk Complaints" preview means
+        # recent, not "the model's single most confident calls" (the
+        # default -- what the dedicated Alerts page wants).
+        high = sorted(high, key=lambda it: it["filed_at"], reverse=True)
+    # `total` is the real, complete HIGH-urgency count before slicing to
+    # `limit` -- Command Center's "High Risk Cases" stat card uses this
+    # (this endpoint's own fetch, already happening for the alerts table)
+    # rather than a second, separate count.
+    return {"items": high[: min(limit, 100)], "total": len(high)}

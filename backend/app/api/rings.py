@@ -5,6 +5,15 @@ stats: how many complaints touch it, total amount at risk, and where its
 cash-outs cluster. This is the second real destination in the sidebar nav
 (previously the app only had one) -- an investigator's "what rings are
 active right now" view, distinct from a single case's own investigation.
+
+NOT gated by the live-replay watermark (see core/replay_state.py, used by
+stats.py/feed.py) -- account/transaction structure is real and fully known
+regardless of which individual complaints the demo's "Simulate Complaint"
+button has revealed yet. A ring's member accounts don't stop existing
+because one of its linked complaints hasn't "arrived" in the live feed.
+This does mean a ring's num_complaints/total_amount_at_risk can include
+complaints Command Center's other widgets haven't revealed yet -- a
+deliberate scope simplification, not an oversight.
 """
 
 import time

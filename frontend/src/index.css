@@ -58,10 +58,61 @@ body {
   color: #c3c2b7;
 }
 
-/* CartoDB's free "dark_all" basemap -- real dark cartography (no API key,
-   no CSS-filter hack). The filter-based approach (inverting standard OSM
-   tiles) was dropped: it fought with Leaflet's GPU-transformed tile layer
-   and rendered unreliably. Background color shows while tiles are in flight. */
+/* Esri's World_Dark_Gray tiles (see CashOutMap.jsx) render lighter/warmer
+   than this app's near-black surface palette -- a real, reported mismatch,
+   not a subjective nitpick. Darkening the tile pane itself (not the whole
+   map, so markers/popups keep their real colors) closes that gap without
+   another tile-provider migration. Background color shows while tiles are
+   still in flight. */
 .dark-tiles .leaflet-container {
   background: #1a1a19;
+  height: 100%;
+  width: 100%;
+}
+
+.dark-tiles .leaflet-tile-pane {
+  filter: brightness(0.55) contrast(1.15) saturate(0.7);
+}
+
+/* Leaflet's default attribution control is a solid light strip that reads
+   as a separate "footer bar" glued under a dark map -- restyled to match
+   the theme and stay compact instead of wrapping to two lines. Still
+   present (Esri/OSM require attribution), just not ugly. Leaflet positions
+   this with position:absolute itself (leaflet.css's `.leaflet-bottom`
+   rule); the explicit !important below is only insurance against Tailwind
+   preflight, not a sign that positioning was ever actually broken. */
+.dark-tiles .leaflet-control-attribution {
+  position: absolute !important;
+  max-width: 70%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: rgba(13, 13, 13, 0.7);
+  color: #898781;
+  font-size: 9px;
+  line-height: 1.4;
+  padding: 0 4px;
+  border-radius: 3px 0 0 0;
+}
+
+.dark-tiles .leaflet-control-attribution a {
+  color: #3987e5;
+}
+
+/* Permanent per-marker labels (CashOutMap.jsx) -- the % should be readable
+   without hovering/clicking, per direct feedback that markers need their
+   value visible at a glance. */
+.dark-tiles .leaflet-tooltip.cashout-label {
+  background: rgba(13, 13, 13, 0.85);
+  border: none;
+  color: #ffffff;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  box-shadow: none;
+}
+
+.dark-tiles .leaflet-tooltip.cashout-label::before {
+  display: none;
 }

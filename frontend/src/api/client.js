@@ -33,6 +33,8 @@ export const api = {
   // enforced server-side (see backend/app/api/*.py), not just a display
   // filter. `null`/omitted city (administrators) means unrestricted.
   stats: (city, signal) => request(`/stats${qs({ city })}`, { signal }),
+  statsTimeseries: (days = 7, city, signal) => request(`/stats/timeseries${qs({ days, city })}`, { signal }),
+  statsHotspots: (limit = 5, city, signal) => request(`/stats/hotspots${qs({ limit, city })}`, { signal }),
   listComplaints: (limit = 50, skip = 0, q = "", city, signal) =>
     request(`/complaints${qs({ limit, skip, q, city })}`, { signal }),
   countComplaints: (q = "", city, signal) => request(`/complaints/count${qs({ q, city })}`, { signal }),
@@ -48,7 +50,8 @@ export const api = {
   evaluation: (signal) => request("/evaluation", { signal }),
   rings: (limit = 50, city, signal) => request(`/rings${qs({ limit, city })}`, { signal }),
   predictionsFeed: (limit = 40, city, signal) => request(`/feed/predictions${qs({ limit, city })}`, { signal }),
-  alertsFeed: (limit = 40, city, signal) => request(`/feed/alerts${qs({ limit, city })}`, { signal }),
+  alertsFeed: (limit = 40, city, signal, sort) => request(`/feed/alerts${qs({ limit, city, sort })}`, { signal }),
   triggerNext: () => request("/stream/trigger-next", { method: "POST" }),
   resetStream: () => request("/stream/reset", { method: "POST" }),
+  streamStatus: (signal) => request("/stream/status", { signal }),
 };
