@@ -20,6 +20,18 @@ module's docstring.
 City-scoped like every other live-feed view in this app (see stats.py's
 docstring): an investigator only sees events touching their own
 jurisdiction; administrators (city=None) see everything.
+
+DEDUPED AT THE SOURCE, NOT JUST IN THE UI
+-------------------------------------------------------------------
+Two independently real callers can legitimately fire for the same thing
+close together -- e.g. an investigator opening a case's workspace (a real
+/predict call) while activity_simulator.py's own story for that exact
+complaint also happens to reach its "predict" step around the same time.
+Both log calls are individually honest, but showing both is just visual
+noise ("Case #0U00 -- Cash-out prediction generated" twice, verified
+live). If the same (type, message) pair was already logged within
+_DEDUPE_WINDOW_SECONDS, the repeat is silently dropped here rather than
+appended -- one real event, not a manufactured pair of them.
 """
 
 import threading
@@ -28,13 +40,22 @@ from datetime import datetime, timezone
 from typing import Optional
 
 _MAX_EVENTS = 200
+_DEDUPE_WINDOW_SECONDS = 60
+_DEDUPE_LOOKBACK = 20  # only the most recent handful -- old repeats are fine
 _events = deque(maxlen=_MAX_EVENTS)
 _lock = threading.Lock()
 _next_id = [0]
 
 
 def log_event(event_type: str, message: str, detail: str, city: Optional[str]):
+    now = datetime.now(timezone.utc)
     with _lock:
+        for e in list(_events)[:_DEDUPE_LOOKBACK]:
+            if e["type"] == event_type and e["message"] == message:
+                age = (now - datetime.fromisoformat(e["timestamp"])).total_seconds()
+                if age < _DEDUPE_WINDOW_SECONDS:
+                    return
+                break  # deque is newest-first: the first match is the most recent
         _next_id[0] += 1
         _events.appendleft({
             "id": _next_id[0],
@@ -42,7 +63,7 @@ def log_event(event_type: str, message: str, detail: str, city: Optional[str]):
             "message": message,
             "detail": detail,
             "city": city,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now.isoformat(),
         })
 
 

@@ -27,7 +27,15 @@ from ml import advanced_model, baseline_model, calibration
 from ml.pipeline import ARTIFACTS_DIR, Dataset, load_or_build_features, temporal_split
 
 HIT_RADIUS_KM = 2.0
-HIGH_CONFIDENCE_THRESHOLD = 0.5
+# Was 0.5 -- unreachable on this data (max observed top-1 confidence across
+# the test set is ~0.196, since a calibrated pick among ~40 candidates
+# rarely clears 20%), so this metric always reported n=0 and was silently
+# uninformative. 0.125 is the SAME 5x-lift-over-random-chance threshold the
+# live app itself calls "HIGH" urgency (see api/predict.py's lift_urgency)
+# -- a principled definition of "high confidence" already used elsewhere,
+# not a percentile picked just to get a non-zero sample size. On the
+# current test set this yields ~40 qualifying top-1 predictions.
+HIGH_CONFIDENCE_THRESHOLD = 0.125
 
 
 def rank_within_complaint(df: pd.DataFrame, prob_col: str) -> pd.DataFrame:
@@ -137,11 +145,66 @@ def evaluate_model(name: str, df_test: pd.DataFrame, prob_col: str) -> dict:
     }, df_ranked
 
 
+def _fit_and_score_one_seed(df_train: pd.DataFrame, df_test: pd.DataFrame, seed: int):
+    """One full fit+calibrate+score pass at a given seed. `seed` drives BOTH
+    the model's own randomness (tree construction, subsampling) AND which
+    complaints land in the calibration-fit vs calibration-holdout split
+    (`calibration.split_by_complaint`) -- so re-running this across several
+    seeds is a genuine stability check on the whole fit+calibrate pipeline,
+    not just a knob turn. The train/test split itself (`temporal_split`) is
+    NOT re-drawn per seed -- that has to stay fixed for "did the graph
+    features help" to mean anything; only the fitting randomness is what
+    we're checking for stability here."""
+    baseline_raw, baseline_calibrated = calibration.fit_and_calibrate(
+        baseline_model.fit, df_train, baseline_model.FEATURE_COLUMNS, seed=seed
+    )
+    advanced_raw, advanced_calibrated = calibration.fit_and_calibrate(
+        advanced_model.fit, df_train, advanced_model.FEATURE_COLUMNS, seed=seed
+    )
+
+    df_test = df_test.copy()
+    df_test["baseline_prob"] = baseline_calibrated.predict_proba(df_test[baseline_model.FEATURE_COLUMNS])[:, 1]
+    df_test["advanced_prob"] = advanced_calibrated.predict_proba(df_test[advanced_model.FEATURE_COLUMNS])[:, 1]
+
+    baseline_results, baseline_ranked = evaluate_model("baseline (Random Forest, tabular-only)", df_test, "baseline_prob")
+    advanced_results, advanced_ranked = evaluate_model("advanced (XGBoost, fused graph+temporal+geo)", df_test, "advanced_prob")
+    return baseline_results, advanced_results, advanced_ranked
+
+
+def _mean_std(values: list) -> dict:
+    arr = np.array(values, dtype=float)
+    return {"mean": float(arr.mean()), "std": float(arr.std()), "values": [round(v, 4) for v in values]}
+
+
+def _stability_across_seeds(per_seed_results: list) -> dict:
+    """per_seed_results: list of (seed, baseline_results, advanced_results).
+    Aggregates the headline metrics across seeds so "is 48.6% a lucky split"
+    has a real, computed answer instead of none."""
+    seeds = [s for s, _, _ in per_seed_results]
+    return {
+        "seeds": seeds,
+        "advanced": {
+            "precision_at_1": _mean_std([a["precision_at_1"] for _, _, a in per_seed_results]),
+            "precision_at_5": _mean_std([a["precision_at_5"] for _, _, a in per_seed_results]),
+            "hit_rate_within_2km_at_5": _mean_std([a["hit_rate_within_2km_at_5"] for _, _, a in per_seed_results]),
+            "brier_score": _mean_std([a["brier_score"] for _, _, a in per_seed_results]),
+        },
+        "baseline": {
+            "precision_at_5": _mean_std([b["precision_at_5"] for _, b, _ in per_seed_results]),
+        },
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", default="../../data/output")
     parser.add_argument("--rebuild", action="store_true")
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, default=42, help="primary seed -- its full detailed report (reliability table etc.) is what gets saved/served")
+    parser.add_argument(
+        "--seeds", type=str, default=None,
+        help="comma-separated extra seeds for a stability check (mean/std of headline metrics across fits). "
+             "Example: --seeds 42,7,123,2024,99. If omitted, only --seed runs (old single-run behavior).",
+    )
     args = parser.parse_args()
 
     print("Loading dataset...")
@@ -154,22 +217,26 @@ def main():
     print("Building/loading TEST features (point-in-time, as_of=filed_at per complaint)...")
     df_test = load_or_build_features(ds, test_complaints, "features_test", rebuild=args.rebuild)
 
-    print("Fitting + calibrating baseline (Random Forest, tabular-only)...")
-    baseline_raw, baseline_calibrated = calibration.fit_and_calibrate(
-        baseline_model.fit, df_train, baseline_model.FEATURE_COLUMNS, seed=args.seed
-    )
-    print("Fitting + calibrating advanced (XGBoost, fused graph+temporal+geo features)...")
-    advanced_raw, advanced_calibrated = calibration.fit_and_calibrate(
-        advanced_model.fit, df_train, advanced_model.FEATURE_COLUMNS, seed=args.seed
-    )
+    seed_list = [args.seed]
+    if args.seeds:
+        seed_list += [int(s) for s in args.seeds.split(",") if int(s) != args.seed]
 
-    df_test["baseline_prob"] = baseline_calibrated.predict_proba(df_test[baseline_model.FEATURE_COLUMNS])[:, 1]
-    df_test["advanced_prob"] = advanced_calibrated.predict_proba(df_test[advanced_model.FEATURE_COLUMNS])[:, 1]
+    per_seed_results = []
+    primary_advanced_ranked = None
+    for i, seed in enumerate(seed_list):
+        label = "primary" if i == 0 else "stability check"
+        print(f"\nFitting + calibrating both models at seed={seed} ({label})...")
+        baseline_results, advanced_results, advanced_ranked = _fit_and_score_one_seed(df_train, df_test, seed)
+        per_seed_results.append((seed, baseline_results, advanced_results))
+        if i == 0:
+            primary_advanced_ranked = advanced_ranked
 
-    baseline_results, baseline_ranked = evaluate_model("baseline (Random Forest, tabular-only)", df_test, "baseline_prob")
-    advanced_results, advanced_ranked = evaluate_model("advanced (XGBoost, fused graph+temporal+geo)", df_test, "advanced_prob")
-
-    lead_time = lead_time_stats(ds, test_complaints, advanced_ranked)
+    # The detailed report (reliability table, false-positive breakdown, the
+    # numbers Analytics.jsx renders) is the PRIMARY seed's -- unchanged
+    # shape from before, so nothing downstream breaks. Multi-seed stability
+    # is additive, not a replacement.
+    _, baseline_results, advanced_results = per_seed_results[0]
+    lead_time = lead_time_stats(ds, test_complaints, primary_advanced_ranked)
 
     report = {
         "n_test_complaints": int(len(test_complaints)),
@@ -177,6 +244,8 @@ def main():
         "advanced": advanced_results,
         "lead_time_advanced_model": lead_time,
     }
+    if len(per_seed_results) > 1:
+        report["stability"] = _stability_across_seeds(per_seed_results)
 
     print("\n" + "=" * 78)
     print("SECTION 18 EVALUATION -- BASELINE vs ADVANCED (real numbers, temporal split)")
@@ -202,6 +271,15 @@ def main():
 
     lift_p5 = advanced_results["precision_at_5"] - baseline_results["precision_at_5"]
     print(f"\nLift: advanced Precision@5 - baseline Precision@5 = {lift_p5:+.3f}")
+
+    if "stability" in report:
+        st = report["stability"]["advanced"]
+        print("\n" + "-" * 78)
+        print(f"STABILITY ACROSS {len(seed_list)} SEEDS {seed_list} (fit+calibration randomness only, same temporal split):")
+        print(f"  Advanced Precision@1  : {st['precision_at_1']['mean']:.3f} +/- {st['precision_at_1']['std']:.3f}   {st['precision_at_1']['values']}")
+        print(f"  Advanced Precision@5  : {st['precision_at_5']['mean']:.3f} +/- {st['precision_at_5']['std']:.3f}   {st['precision_at_5']['values']}")
+        print(f"  Advanced Hit-rate@5   : {st['hit_rate_within_2km_at_5']['mean']:.3f} +/- {st['hit_rate_within_2km_at_5']['std']:.3f}")
+        print(f"  Advanced Brier score  : {st['brier_score']['mean']:.4f} +/- {st['brier_score']['std']:.4f}")
     print("=" * 78)
 
     with open(ARTIFACTS_DIR / "evaluation_report.json", "w") as f:

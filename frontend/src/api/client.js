@@ -35,9 +35,10 @@ export const api = {
   stats: (city, signal) => request(`/stats${qs({ city })}`, { signal }),
   statsTimeseries: (days = 7, city, signal) => request(`/stats/timeseries${qs({ days, city })}`, { signal }),
   statsHotspots: (limit = 5, city, signal) => request(`/stats/hotspots${qs({ limit, city })}`, { signal }),
-  listComplaints: (limit = 50, skip = 0, q = "", city, signal, sort) =>
-    request(`/complaints${qs({ limit, skip, q, city, sort })}`, { signal }),
-  countComplaints: (q = "", city, signal) => request(`/complaints/count${qs({ q, city })}`, { signal }),
+  listComplaints: (limit = 50, skip = 0, q = "", city, signal, sort, status, revealed) =>
+    request(`/complaints${qs({ limit, skip, q, city, sort, status, revealed })}`, { signal }),
+  countComplaints: (q = "", city, signal, status, revealed) =>
+    request(`/complaints/count${qs({ q, city, status, revealed })}`, { signal }),
   getComplaint: (id, signal) => request(`/complaints/${id}`, { signal }),
   createComplaint: (payload) =>
     request("/complaints", { method: "POST", body: JSON.stringify(payload) }),

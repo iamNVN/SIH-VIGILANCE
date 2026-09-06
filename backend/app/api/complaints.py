@@ -51,15 +51,28 @@ def _to_out(complaint: Complaint) -> ComplaintOut:
     )
 
 
-def _filtered(stmt, q: Optional[str], city: Optional[str]):
+def _filtered(stmt, q: Optional[str], city: Optional[str], status: Optional[str] = None, revealed: Optional[bool] = None):
     """`city` is a hard AND filter (an investigator's jurisdiction scope --
     see stats.py's docstring); `q` is a free-text OR search within that
-    scope. Both join Victim, so the join happens once regardless of which
-    filters are active."""
+    scope; `status` is a hard AND filter on the complaint's real `status`
+    column (e.g. "open" for Command Center's "Pending Action" card --
+    same value that gate already writes/reads, not a separate concept).
+    `revealed`, when given, matches Cases up with a live-feed count that's
+    itself gated to `revealed` (see stats.py's open_complaints) -- without
+    it, "Pending Action" (a revealed-only count) linking to `status=open`
+    here would show every open complaint ever, revealed or not, a
+    real reported mismatch (~21 on the card vs 110 on the list). Cases'
+    own default (unscoped) browsing is unaffected -- this only applies
+    when a caller explicitly asks for it. Both q/city join Victim, so the
+    join happens once regardless of which filters are active."""
     if q or city:
         stmt = stmt.join(Victim)
     if city:
         stmt = stmt.where(Victim.city == city)
+    if status:
+        stmt = stmt.where(Complaint.status == status)
+    if revealed is not None:
+        stmt = stmt.where(Complaint.revealed.is_(revealed))
     if q:
         needle = f"%{q.strip()}%"
         stmt = stmt.where(
@@ -79,11 +92,13 @@ def list_complaints(
     limit: int = 50,
     q: Optional[str] = None,
     city: Optional[str] = None,
+    status: Optional[str] = None,
+    revealed: Optional[bool] = None,
     sort: str = "newest",
     db: Session = Depends(get_db),
 ):
     limit = min(limit, 200)
-    stmt = _filtered(select(Complaint).options(joinedload(Complaint.victim)), q, city)
+    stmt = _filtered(select(Complaint).options(joinedload(Complaint.victim)), q, city, status, revealed)
 
     if sort in ("risk", "confidence"):
         # Can't express "order by this complaint's model confidence" in SQL
@@ -103,8 +118,14 @@ def list_complaints(
 
 
 @router.get("/count")
-def count_complaints(q: Optional[str] = None, city: Optional[str] = None, db: Session = Depends(get_db)):
-    stmt = _filtered(select(Complaint), q, city)
+def count_complaints(
+    q: Optional[str] = None,
+    city: Optional[str] = None,
+    status: Optional[str] = None,
+    revealed: Optional[bool] = None,
+    db: Session = Depends(get_db),
+):
+    stmt = _filtered(select(Complaint), q, city, status, revealed)
     total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
     return {"total": total}
 

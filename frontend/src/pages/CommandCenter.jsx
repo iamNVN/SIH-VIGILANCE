@@ -8,7 +8,6 @@ import {
   IndianRupee,
   MapPin,
   Plus,
-  Share2,
   Shield,
   X,
   Zap,
@@ -75,18 +74,20 @@ function ringRiskTier(size) {
   return { label: "LOW", badge: "bg-white/5 text-ink-muted" };
 }
 
-function StatCard({ icon: Icon, iconBg, iconColor, label, value, format, delay }) {
+function StatCard({ icon: Icon, iconBg, iconColor, label, value, format, delay, onClick }) {
   // `value == null` means "still loading" (e.g. High Risk Cases waits on
   // the batch feed, not the fast DB stats) -- shown as a quiet pulse
   // instead of blocking the other cards, which have no such dependency.
   const isLoading = value === null || value === undefined;
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay }}
-      whileHover={{ y: -2 }}
-      className="card p-4"
+      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.45, delay, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -4, transition: { type: "spring", stiffness: 400, damping: 20 } }}
+      whileTap={onClick ? { scale: 0.97 } : undefined}
+      onClick={onClick}
+      className={`card p-4 transition-shadow duration-200 hover:shadow-lg hover:shadow-black/10 ${onClick ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -99,9 +100,13 @@ function StatCard({ icon: Icon, iconBg, iconColor, label, value, format, delay }
             </p>
           )}
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg}`}>
+        <motion.div
+          whileHover={{ rotate: 8, scale: 1.1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 12 }}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg}`}
+        >
           <Icon className={`h-5 w-5 ${iconColor}`} strokeWidth={2} />
-        </div>
+        </motion.div>
       </div>
     </motion.div>
   );
@@ -212,7 +217,12 @@ export default function CommandCenter() {
   return (
     <div className="mx-auto max-w-7xl px-8 py-8">
       {/* Header: title/subtitle left, live status + actions right */}
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="mb-6 flex flex-wrap items-start justify-between gap-4"
+      >
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
@@ -226,7 +236,11 @@ export default function CommandCenter() {
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-3 text-xs text-ink-muted">
             <span className="flex items-center gap-1.5 text-status-good">
-              <span className="h-1.5 w-1.5 rounded-full bg-status-good" /> System Online
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-status-good" />
+              </span>
+              System Online
             </span>
             <span className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" strokeWidth={2} />
@@ -234,24 +248,40 @@ export default function CommandCenter() {
             </span>
             <span className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" strokeWidth={2} />
-              {now.toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })} IST
+              <motion.span
+                key={now.getSeconds()}
+                initial={{ opacity: 0.4 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              >
+                {now.toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })} IST
+              </motion.span>
             </span>
           </div>
           <div className="flex items-center gap-3">
             {/* {streamStatus && (
               <span className="id-tag text-xs text-ink-muted">{streamStatus.revealed} / {streamStatus.total} arrived</span>
             )} */}
-            <button
+            <motion.button
               onClick={handleTrigger}
               disabled={triggering || streamStatus?.done}
+              whileHover={!(triggering || streamStatus?.done) ? { scale: 1.03 } : undefined}
+              whileTap={!(triggering || streamStatus?.done) ? { scale: 0.96 } : undefined}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               className="flex items-center gap-1.5 rounded-md bg-series-1 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50"
             >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              <motion.span
+                animate={triggering ? { rotate: 360 } : { rotate: 0 }}
+                transition={triggering ? { repeat: Infinity, duration: 0.8, ease: "linear" } : { duration: 0.2 }}
+                className="flex"
+              >
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </motion.span>
               {triggering ? "Bringing in complaint…" : streamStatus?.done ? "All complaints have arrived" : "Simulate Complaint"}
-            </button>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Simulate Complaint's real result: the actual complaint that just
           arrived, actually scored (same /predict every case uses), with a
@@ -260,9 +290,10 @@ export default function CommandCenter() {
       <AnimatePresence>
         {arrival && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, height: 0, scale: 0.98 }}
+            animate={{ opacity: 1, height: "auto", scale: 1 }}
+            exit={{ opacity: 0, height: 0, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 320, damping: 28 }}
             className="mb-6 overflow-hidden"
           >
             {arrival.done && (
@@ -334,10 +365,10 @@ export default function CommandCenter() {
           real layout shift, not just a slow number. Rendering the shells
           immediately keeps the page's height stable from first paint; each
           card fills in independently as its own data resolves. */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-5 lg:grid-cols-4">
         <StatCard icon={FileText} iconBg="bg-series-1/15" iconColor="text-series-1" label="Total Complaints" value={stats?.total_complaints} delay={0} />
         <StatCard icon={Shield} iconBg="bg-status-critical/15" iconColor="text-status-critical" label="High Risk Cases" value={recentAlerts?.total ?? stats?.high_risk_cases} delay={0.03} />
-        <StatCard icon={Share2} iconBg="bg-series-7/15" iconColor="text-series-7" label="Active Fraud Rings" value={stats?.suspected_active_rings} delay={0.06} />
+        <StatCard icon={Clock} iconBg="bg-series-7/15" iconColor="text-series-7" label="Pending Action" value={stats?.open_complaints} delay={0.06} onClick={() => navigate("/cases?status=open&revealed=true")} />
         <StatCard icon={IndianRupee} iconBg="bg-status-warning/15" iconColor="text-status-warning" label="Amount at Risk" value={stats?.total_amount_at_risk} format={money} delay={0.09} />
       </div>
 
@@ -348,14 +379,19 @@ export default function CommandCenter() {
           (0→4→3→0→4→0→2) didn't communicate anything -- these two panels
           are directly about the same cash-out intelligence the rest of
           this screen is for. */}
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="card lg:col-span-2  p-5">
+      <div className="mb-5 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+          className="card lg:col-span-2  p-5"
+        >
           <div className="mb-1 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-series-1/15">
                 <MapPin className="h-4 w-4 text-series-1" strokeWidth={2} />
               </div>
-              <h2 className="text-sm font-semibold text-ink-primary">Predicted Cash-out Hotspots</h2>
+              <h2 className="text-sm font-semibold text-ink-primary">Top Predicted Cash-out Hotspots</h2>
             </div>
             {/* Only an administrator (national scope) gets a real picker --
                 an investigator's jurisdiction is fixed server-side (see
@@ -385,7 +421,7 @@ export default function CommandCenter() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1.3fr_1fr]">
                 <div>
                   <CashOutMap predictions={hotspotPredictions} height={280} hideLegend />
-                  <p className="mt-2 text-[11px] text-ink-muted">Larger circle = higher probability</p>
+                  <p className="mt-2 text-[12px] text-ink-muted">Larger circle = higher probability</p>
                   <div className="mt-2 border-t border-surface-border pt-2">
                     <CashOutMapLegend />
                   </div>
@@ -393,44 +429,62 @@ export default function CommandCenter() {
 
                 <div className="flex flex-col">
                   <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">Top Predicted Locations</h3>
-                  <ul className="flex-1 space-y-3">
+                  <ul className="flex-1 space-y-4">
                     {hotspots.map((h, i) => {
                       const urgency = hotspotPredictions[i]?.urgency;
                       const color = URGENCY_COLOR[urgency] || URGENCY_COLOR.LOW;
                       const [place, ...rest] = h.name.split(", ");
                       const area = rest.join(", ");
                       return (
-                        <li key={h.name} className="flex items-center gap-2.5">
-                          <span
+                        <motion.li
+                          key={h.name}
+                          initial={{ opacity: 0, x: -14 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.35, delay: i * 0.07, ease: "easeOut" }}
+                          whileHover={{ x: 4 }}
+                          className="-mx-1.5 flex items-center gap-2.5 rounded-md px-1.5 py-0.5 transition-colors duration-150 hover:bg-white/5"
+                        >
+                          <motion.span
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: i * 0.07 + 0.1, type: "spring", stiffness: 400, damping: 14 }}
                             className="id-tag flex h-8 w-6 shrink-0 items-center justify-center rounded-sm text-xs font-bold"
                             style={{ background: `${color}26`, color }}
                           >
                             {i + 1}
-                          </span>
+                          </motion.span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm  font-medium text-ink-primary">{place}</p>
                             {area && <p className="truncate text-xs text-ink-muted">{area}</p>}
                           </div>
                           <span className="id-tag shrink-0 text-sm font-semibold" style={{ color }}>{h.share_pct}%</span>
-                        </li>
+                        </motion.li>
                       );
                     })}
                   </ul>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     onClick={() => navigate("/maps")}
                     className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md bg-series-1 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600"
                   >
                     View Full Map <ExternalLink className="h-3 w-3" strokeWidth={2} />
-                  </button>
+                  </motion.button>
                 </div>
               </div>
             </>
           ) : (
             <LoadingSpinner label="Aggregating hotspots…" />
           )}
-        </div>
+        </motion.div>
 
-        <div className="card flex flex-col p-5">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          className="card flex flex-col p-5"
+        >
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-status-good/15">
@@ -459,37 +513,67 @@ export default function CommandCenter() {
               <LoadingSpinner label="Loading activity…" />
             ) : (
               <ul className="divide-y divide-white/5">
-                {visibleEvents.map((ev) => (
-                  <li key={ev.id} className="flex gap-3 py-2.5 first:pt-0">
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: eventColor(ev) }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-baseline gap-2">
-                        <span className="id-tag bg-white/5 shrink-0 text-xs font-semibold text-ink-secondary px-1">
-                          {new Date(ev.timestamp).toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })}
-                        </span>
-                        <span className="min-w-0 truncate text-sm font-medium text-ink-primary">{ev.message}</span>
-                      </p>
-                      {ev.detail && <p className="mt-0.5 truncate text-xs text-ink-muted">{ev.detail}</p>}
-                    </div>
-                  </li>
-                ))}
+                <AnimatePresence initial={true} mode="popLayout">
+                  {visibleEvents.map((ev, i) => (
+                    <motion.li
+                      key={ev.id}
+                      layout
+                      initial={{ opacity: 0, y: -28, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: -16, transition: { duration: 0.25 } }}
+                      transition={{
+                        opacity: { duration: 0.7, delay: i * 0.12, ease: "easeOut" },
+                        y: { duration: 0.7, delay: i * 0.12, ease: [0.16, 1, 0.3, 1] },
+                        scale: { duration: 0.7, delay: i * 0.12, ease: "easeOut" },
+                        layout: { duration: 0.5, ease: "easeOut" },
+                      }}
+                      className="flex gap-3 rounded-sm py-2.5 first:pt-0"
+                    >
+                      <motion.span
+                        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: eventColor(ev) }}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 260, damping: 14, delay: i * 0.12 + 0.25 }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-baseline gap-2">
+                          <span className="id-tag bg-white/5 shrink-0 text-xs font-semibold text-ink-secondary px-1">
+                            {new Date(ev.timestamp).toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })}
+                          </span>
+                          <span className="min-w-0 truncate text-sm font-medium text-ink-primary">{ev.message}</span>
+                        </p>
+                        {ev.detail && <p className="mt-0.5 truncate text-xs text-ink-muted">{ev.detail}</p>}
+                      </div>
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
               </ul>
             )}
           </div>
           {events.length > 6 && (
-            <button
+            <motion.button
+              whileTap={{ scale: 0.96 }}
               onClick={() => setShowAllEvents((v) => !v)}
               className="mt-3 flex items-center gap-1 border-t border-surface-border pt-3 text-xs font-medium text-series-1 hover:text-series-1/80"
             >
-              {showAllEvents ? "Show fewer" : "View All Activity"} <ExternalLink className="h-3 w-3" strokeWidth={2} />
-            </button>
+              {showAllEvents ? "Show fewer" : "View All Activity"}
+              <motion.span animate={{ rotate: showAllEvents ? 180 : 0 }} transition={{ duration: 0.25 }} className="flex">
+                <ExternalLink className="h-3 w-3" strokeWidth={2} />
+              </motion.span>
+            </motion.button>
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Tables row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="card">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          className="card"
+        >
           <div className="card-header flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink-primary">Recent High Risk Complaints</h2>
             <button onClick={() => navigate("/alerts")} className="text-xs font-medium text-series-1 hover:text-series-1/80">
@@ -513,26 +597,35 @@ export default function CommandCenter() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentAlerts.items.map((it) => (
-                    <tr
+                  {recentAlerts.items.map((it, idx) => (
+                    <motion.tr
                       key={it.complaint_id}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+                      whileHover={{ backgroundColor: "rgba(255,255,255,0.05)", x: 2 }}
                       onClick={() => navigate(`/cases/${it.complaint_id}`)}
-                      className="cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5"
+                      className="cursor-pointer border-b border-white/5 last:border-0"
                     >
                       <td className="id-tag px-5 py-2.5 text-ink-muted">#{caseCode(it.complaint_id)}</td>
                       <td className="px-3 py-2.5 font-medium text-ink-primary">{it.victim_name}</td>
                       <td className="id-tag px-3 py-2.5 text-ink-secondary">{money(it.amount_lost)}</td>
                       <td className="max-w-[160px] truncate px-3 py-2.5 text-ink-secondary">{it.top_prediction.name}</td>
                       <td className="px-3 py-2.5"><UrgencyBadge urgency={it.top_prediction.urgency} /></td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+        </motion.div>
 
-        <div className="card">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="card"
+        >
           <div className="card-header flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink-primary">Active Fraud Rings</h2>
             <button onClick={() => navigate("/rings")} className="text-xs font-medium text-series-1 hover:text-series-1/80">
@@ -556,31 +649,40 @@ export default function CommandCenter() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ringsData.rings.map((r) => {
+                  {ringsData.rings.map((r, idx) => {
                     const tier = ringRiskTier(r.size);
                     return (
-                      <tr
+                      <motion.tr
                         key={r.community_id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)", x: 2 }}
                         onClick={() => navigate(`/cases/${r.sample_complaint_id}`)}
-                        className="cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5"
+                        className="cursor-pointer border-b border-white/5 last:border-0"
                       >
                         <td className="id-tag px-5 py-2.5 text-ink-muted">R-{r.community_id}</td>
                         <td className="id-tag px-3 py-2.5 text-ink-primary">{r.size}</td>
                         <td className="id-tag px-3 py-2.5 text-ink-secondary">{r.num_complaints}</td>
                         <td className="id-tag px-3 py-2.5 text-ink-secondary">{money(r.total_amount_at_risk)}</td>
                         <td className="px-3 py-2.5">
-                          <span className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tier.badge}`}>
+                          <motion.span
+                            initial={{ scale: 0.7, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: idx * 0.05 + 0.15, type: "spring", stiffness: 400, damping: 15 }}
+                            className={`inline-flex rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${tier.badge}`}
+                          >
                             {tier.label}
-                          </span>
+                          </motion.span>
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
 
       <p className="mt-8 text-center text-xs text-ink-muted">

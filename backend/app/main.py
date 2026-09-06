@@ -9,8 +9,9 @@ from fastapi.responses import JSONResponse
 from api import brief, complaints, evaluation, events, explain, feed, graph, predict, rings, settings, stats, stream
 from api.feed import _cached_feed
 from api.rings import _cached_rings, log_initial_ring_detections
+from core import replay_state
 from core.activity_simulator import start_simulator
-from core.db import Base, engine
+from core.db import Base, SessionLocal, engine
 from core.model_registry import registry
 from graph_engine.features import NoKnownTransactionChain
 
@@ -38,6 +39,20 @@ def no_chain_handler(request: Request, exc: NoKnownTransactionChain):
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+
+    # The demo's live-replay state (which complaints have "arrived", any
+    # decisions made on them) is deliberately session-scoped, not
+    # persistent history -- every boot resets to the same fixed ~102-
+    # complaint starting baseline (see replay_state.reset()'s docstring),
+    # regardless of what a previous run revealed or decided. Runs
+    # synchronously, before the cache-warming thread below, so that thread
+    # warms against the POST-reset state, not whatever was left on disk.
+    db = SessionLocal()
+    try:
+        revealed = replay_state.reset(db)
+        print(f"Live-replay reset: {revealed} complaints revealed at startup; the rest arrive live over the session.")
+    finally:
+        db.close()
 
     # Command Center's first load fires several requests that all depend on
     # the batch feed / rings caches (see feed.py, rings.py) -- without this,

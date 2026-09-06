@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { ArrowUpDown, Search } from "lucide-react";
+import { ArrowUpDown, Search, X } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
@@ -36,6 +36,21 @@ export default function Cases() {
   const [page, setPage] = useState(0);
   const [sort, setSort] = useState("newest");
 
+  // Command Center's "Pending Action" stat card links here with
+  // ?status=open -- a real DB-column filter (see api/complaints.py's
+  // `_filtered()`), not a client-side re-guess of the same thing, so this
+  // list always agrees with that count.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const status = searchParams.get("status");
+  const revealedParam = searchParams.get("revealed");
+  const revealed = revealedParam === null ? undefined : revealedParam === "true";
+  const clearStatusFilter = () => setSearchParams((p) => {
+    const next = new URLSearchParams(p);
+    next.delete("status");
+    next.delete("revealed");
+    return next;
+  });
+
   // Case codes (see utils/caseCode.js) are a scrambled display-only encoding
   // of the real id -- the backend only knows how to search by that real id,
   // so a typed code ("BD4K", short + has a digit -- real names/cities/banks
@@ -46,10 +61,13 @@ export default function Cases() {
   const effectiveQuery = decodedId !== null ? String(decodedId) : query;
 
   const { data: complaints, error, loading } = useApi(
-    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, effectiveQuery, city, signal, sort),
-    [page, effectiveQuery, city, sort]
+    (signal) => api.listComplaints(PAGE_SIZE, page * PAGE_SIZE, effectiveQuery, city, signal, sort, status, revealed),
+    [page, effectiveQuery, city, sort, status, revealed]
   );
-  const { data: countData } = useApi((signal) => api.countComplaints(effectiveQuery, city, signal), [effectiveQuery, city]);
+  const { data: countData } = useApi(
+    (signal) => api.countComplaints(effectiveQuery, city, signal, status, revealed),
+    [effectiveQuery, city, status, revealed]
+  );
   const total = countData?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -64,6 +82,17 @@ export default function Cases() {
         </div>
         <p className="text-sm text-ink-muted">Search and browse every complaint {city ? `in ${city}` : "on file"}.</p>
       </div>
+
+      {status && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-sm bg-series-1/15 px-2.5 py-1 text-xs font-medium text-series-1">
+            Filter: {status === "open" ? "Pending action" : status}
+            <button onClick={clearStatusFilter} className="rounded-full hover:bg-series-1/20">
+              <X className="h-3 w-3" strokeWidth={2.5} />
+            </button>
+          </span>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-3">
         <div className="flex flex-1 items-center gap-2 rounded-md border border-surface-border bg-surface-card px-3 py-2.5">

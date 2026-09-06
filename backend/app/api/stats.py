@@ -76,10 +76,14 @@ def _high_risk_case_count(city: Optional[str]) -> Optional[int]:
 
 @router.get("/stats")
 def get_stats(city: Optional[str] = None, db: Session = Depends(get_db)):
-    # Command Center is the "live feed" view -- gated to what's "arrived"
-    # so far in the replay (see core/replay_state.py). Cases/search are
-    # deliberately NOT gated (the full-archive investigator tool).
-    count_stmt = select(func.count(Complaint.id)).where(Complaint.revealed.is_(True))
+    # Command Center's "Total Complaints" headline number is the full case
+    # count for the jurisdiction (same number Cases shows) -- an
+    # investigator reading this as "how many cases exist" would find a
+    # number gated to only what's "arrived" in the replay misleadingly low
+    # (a real reported confusion: 20 here vs 40+ on Cases for the same
+    # city). Open/at-risk stay scoped to `revealed` -- those describe the
+    # live, currently-actionable queue, not the archive size.
+    count_stmt = select(func.count(Complaint.id))
     amount_stmt = select(func.coalesce(func.sum(Complaint.amount_lost), 0.0)).where(
         Complaint.status == "open", Complaint.revealed.is_(True)
     )

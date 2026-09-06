@@ -48,8 +48,16 @@ export default function CaseWorkspace() {
     [id]
   );
   const top = prediction?.predictions?.[0];
+  const runnerUp = prediction?.predictions?.[1];
   const tone = URGENCY_TONE[top?.urgency] || URGENCY_TONE.LOW;
   const lift = top && prediction?.n_candidates > 0 ? confidenceContext(top.confidence, prediction.n_candidates) : null;
+  // A 3-point-or-less gap between #1 and #2 means the model isn't
+  // confidently distinguishing its top pick from the runner-up -- an
+  // investigator acting on #1 alone here is trusting a coin-flip-ish
+  // margin, not a clear signal. Absolute probability gap, not relative:
+  // a 3-point gap means roughly the same thing whether the base rate is
+  // 5% or 18%, unlike a percentage-of-percentage comparison.
+  const isCloseCall = top && runnerUp && top.confidence - runnerUp.confidence < 0.03;
 
   // Lifted out of Brief.jsx (the last of 4 tabs) -- the actual investigator
   // decision on a case shouldn't require clicking through 3 other tabs
@@ -175,6 +183,15 @@ export default function CaseWorkspace() {
                       <p className="id-tag text-3xl font-bold leading-none text-ink-primary">{Math.round(top.confidence * 100)}%</p>
                       <p className="mt-1 text-[11px] text-ink-muted">Probability</p>
                     </div>
+                  </div>
+                )}
+                {isCloseCall && (
+                  <div className="mt-4 flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 px-3 py-2.5 text-xs text-status-warning">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                    <span>
+                      Closely contested — <strong>{runnerUp.name}</strong> is only {Math.round((top.confidence - runnerUp.confidence) * 100)}
+                      &nbsp;points behind at {Math.round(runnerUp.confidence * 100)}%. Verify before acting on the top pick alone.
+                    </span>
                   </div>
                 )}
                 {top && (

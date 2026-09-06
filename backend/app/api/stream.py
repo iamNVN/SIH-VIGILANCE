@@ -95,13 +95,13 @@ def trigger_next(city: Optional[str] = None, db: Session = Depends(get_db)):
 
 @router.post("/stream/reset")
 def reset_stream(db: Session = Depends(get_db)):
-    holdback_count = replay_state.reset(db)
+    revealed_count = replay_state.reset(db)
     # Unlike a single reveal, reset changes which complaints belong in the
-    # feed at all (a bulk un-reveal), so it's the one case that still needs
+    # feed at all (a bulk re-reveal), so it's the one case that still needs
     # a full recompute -- done in the background so this endpoint's own
     # response doesn't block on it.
     rebuild_feed_in_background()
-    return {"held_back": holdback_count}
+    return {"revealed": revealed_count}
 
 
 @router.websocket("/stream/live-complaints")

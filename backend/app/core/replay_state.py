@@ -7,15 +7,21 @@ other -- feed.py needs to filter by it, stream.py needs to invalidate
 feed.py's cache after revealing one, and putting this in either of those
 two would make that a circular import.
 
-Backed by `Complaint.revealed` (a real column, not an in-memory cursor --
-see models/orm.py and scripts/seed_db.py) so it survives backend restarts
-and supports per-city reveals: seed_db.py holds back the most recent
-HOLDBACK_PER_CITY complaints IN EACH CITY (not one global holdback), so
-"Simulate Complaint" always has something in ANY investigator's own
-jurisdiction to reveal, not just whichever city the globally-next
-complaint happens to be in. Cases/search/direct case links are
-deliberately NOT gated (see api/complaints.py) -- that's the full-archive
-investigator tool, not the "live feed" view.
+Backed by `Complaint.revealed` (a real DB column, not an in-memory cursor)
+-- but per explicit product direction, the STARTING POINT it holds is a
+session-scoped concept, not persistent history: `reset()` runs
+unconditionally on every backend boot (see main.py), pinning the demo back
+to a fixed ~INITIAL_REVEALED_TOTAL baseline every time, regardless of how
+much got revealed/decided during a previous run. This is a deliberate
+choice, not an oversight -- a judge restarting the app should always see
+the same clean starting state, not whatever was left over from someone
+else's demo five minutes earlier.
+
+Reveals the OLDEST complaints first, per city (not a global cut), so every
+investigator's own jurisdiction starts with a real baseline regardless of
+which city's complaints happen to be chronologically earliest overall --
+same reasoning `advance()` already applies per-reveal, just also applied to
+the initial cut.
 """
 
 from typing import Optional
@@ -24,6 +30,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from models import Complaint, Victim
+
+# Not "held back until nearly done" (the old design) but "revealed until a
+# small nearly-done baseline, the rest arrives live" -- deliberately small
+# relative to the dataset's ~690 complaints so there's a large, long-lasting
+# pool for Simulate Complaint / the activity simulator to draw from over a
+# whole session instead of draining in a few minutes of testing (a real
+# reported problem: "top shows all complaints have arrived").
+INITIAL_REVEALED_TOTAL = 102
 
 
 def get_status(db: Session, city: Optional[str] = None) -> dict:
@@ -54,25 +68,44 @@ def advance(db: Session, city: Optional[str] = None) -> Optional[Complaint]:
     return complaint
 
 
-def reset(db: Session, holdback_per_city: int = 15) -> int:
-    """Restores the original demo starting point: the most recent
-    `holdback_per_city` complaints in each city go back to un-arrived,
-    everything else is marked arrived. Returns how many were held back."""
-    db.execute(Complaint.__table__.update().values(revealed=True))
+def reset(db: Session, target_revealed_total: int = INITIAL_REVEALED_TOTAL) -> int:
+    """Resets to a fixed starting point: roughly `target_revealed_total`
+    complaints revealed -- the OLDEST ones in each city, by filed_at, split
+    as evenly across cities as the total allows -- and every other
+    complaint held back to arrive "live" afterward, oldest-first, via
+    Simulate Complaint or the activity simulator (both call `advance()`,
+    unchanged). Also resets `status` back to "open" for every complaint:
+    a previous run's investigator decisions are session-scoped right along
+    with which complaints had arrived, not independently persistent --
+    otherwise a complaint could end up back in "not yet arrived" while
+    still carrying a stale "approved"/"rejected" status from before this
+    reset, a real inconsistent state worth avoiding outright.
+
+    Called unconditionally on every backend startup (see main.py's
+    on_startup) -- not just a manual action -- so nothing revealed or
+    decided in a previous run persists across a restart. Returns how many
+    complaints ended up revealed.
+    """
+    db.execute(Complaint.__table__.update().values(revealed=False, status="open"))
     db.commit()
 
-    cities = db.execute(select(Victim.city).distinct()).scalars().all()
-    holdback_count = 0
-    for city in cities:
+    cities = sorted(db.execute(select(Victim.city).distinct()).scalars().all())
+    n_cities = len(cities) or 1
+    base = target_revealed_total // n_cities
+    remainder = target_revealed_total - base * n_cities
+
+    revealed_count = 0
+    for i, city in enumerate(cities):
+        per_city_target = base + (1 if i < remainder else 0)  # spread the remainder across the first few cities
         ids = db.execute(
             select(Complaint.id)
             .join(Victim)
             .where(Victim.city == city)
-            .order_by(Complaint.filed_at.desc())
-            .limit(holdback_per_city)
+            .order_by(Complaint.filed_at.asc())
+            .limit(per_city_target)
         ).scalars().all()
         if ids:
-            db.execute(Complaint.__table__.update().where(Complaint.id.in_(ids)).values(revealed=False))
-            holdback_count += len(ids)
+            db.execute(Complaint.__table__.update().where(Complaint.id.in_(ids)).values(revealed=True))
+            revealed_count += len(ids)
     db.commit()
-    return holdback_count
+    return revealed_count

@@ -1,3 +1,4 @@
+import { MapPin } from "lucide-react";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AccordionItem } from "../../components/Accordion";
@@ -87,8 +88,22 @@ export default function CashOutMapPage() {
     [complaint.id]
   );
 
+  const [top, runnerUp] = prediction?.predictions || [];
+  // Same 3-point absolute-gap rule as the case header -- see CaseWorkspace.jsx.
+  const isCloseCall = top && runnerUp && top.confidence - runnerUp.confidence < 0.03;
+
   return (
     <div className="space-y-6">
+      {isCloseCall && (
+        <div className="flex items-start gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 px-3 py-2.5 text-xs text-status-warning">
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span>
+            Closely contested — <strong>#1 {top.name}</strong> and <strong>#2 {runnerUp.name}</strong> are only{" "}
+            {Math.round((top.confidence - runnerUp.confidence) * 100)} points apart ({Math.round(top.confidence * 100)}% vs{" "}
+            {Math.round(runnerUp.confidence * 100)}%). Verify before acting on the top pick alone.
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="card p-5">

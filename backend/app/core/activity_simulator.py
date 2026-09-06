@@ -15,16 +15,17 @@ Complaints never budged even as the feed kept saying "new complaint
 received") -- verified live, and fixed here.
 
 Because each injection is a real, finite resource (only
-scripts/seed_db.py's HOLDBACK_PER_CITY complaints are held back per city
-at seed time), this is rate-limited to roughly once every 3-4 minutes
+replay_state.INITIAL_REVEALED_TOTAL complaints are revealed at boot, the
+rest held back -- see replay_state.reset(), which runs on every backend
+startup), this is rate-limited to roughly once every 24s
 (_NEW_CASE_MIN/MAX_INTERVAL_SECONDS), not the few-second cadence the other
 event types use, and gated by core/settings_state.py's "Inject Live Cases"
 toggle (Settings page) -- OFF means no automatic injection at all; a real
 investigator's own Simulate Complaint click is unaffected either way.
 
-Prediction/ring events still sample real cached data (a real complaint's
-real cached prediction, a real detected ring's real stats) on the faster
-cadence -- those were never the part that needed slowing down or gating.
+Prediction/decision events still sample real cached data (a real
+complaint's real cached prediction) on the faster cadence -- those were
+never the part that needed slowing down or gating.
 
 EACH CASE TELLS ONE COHERENT STORY, NOT THREE UNRELATED SAMPLES
 -------------------------------------------------------------------
@@ -33,6 +34,32 @@ received -> predicted -> decided, so the SAME case id (and, once
 predicted, the SAME predicted location) shows up consistently across that
 case's own events, the way a real investigation would read -- not an
 unrelated random complaint sampled fresh for each event type.
+
+NO RING GETS ANNOUNCED TWICE
+-------------------------------------------------------------------
+main.py's startup already announces EVERY real ring once
+(rings.py's log_initial_ring_detections()) -- there is no genuinely NEW
+ring to find afterward on a STATIC graph, so re-announcing one on a timer
+isn't "keeping the feed alive," it's just replaying an old announcement
+(verified live: this was producing byte-identical repeated "Ring R-0xx
+detected" entries). Ongoing ring announcements are removed here entirely
+rather than deduplicated, since there was never a second real
+ring-detection moment to report.
+
+A NEAR-DUPLICATE PREDICTION EVENT IS STILL POSSIBLE, AND THAT'S HANDLED IN event_log.py
+-------------------------------------------------------------------
+`_advance_to_prediction()` only fires once per story (each cid is removed
+from the "received" pool the instant it flips to "predicted", under the
+same lock that checks its stage), and `_start_story()` can never re-pick
+an already-revealed complaint (replay_state.advance() only ever returns
+one that's still unrevealed). But a REAL /predict/{id} call (an
+investigator opening that exact case in the UI while it's also mid-story
+here) can independently log its own "Cash-out prediction generated" event
+for the same complaint around the same time -- two genuinely different,
+individually real log calls that read as a confusing duplicate in the
+feed. core/event_log.py's log_event() is where that's deduplicated (by
+type+message within a short window), not here, since the same collision
+is possible between any two real callers, not just this simulator.
 
 The one type with no real-data anchor is the simulated decision
 (approve/reject) -- it does NOT write to the complaint's actual `status`
@@ -51,12 +78,22 @@ from core.case_code import case_code
 
 _MIN_INTERVAL_SECONDS = 4
 _MAX_INTERVAL_SECONDS = 9
-_MAX_ACTIVE_STORIES = 6
+# Higher than before (6) -- at ~2.5 new cases/minute, a story now starts
+# roughly every 24s on average, so a low cap would fill up and start
+# silently throttling new arrivals well before predict/decide have had a
+# chance to work through the backlog.
+_MAX_ACTIVE_STORIES = 15
 
-_NEW_CASE_MIN_INTERVAL_SECONDS = 180
-_NEW_CASE_MAX_INTERVAL_SECONDS = 240
-_RING_MIN_INTERVAL_SECONDS = 45
-_RING_MAX_INTERVAL_SECONDS = 90
+# ~2.5 complaints/minute average (24s), per explicit product direction --
+# was 3-4 minutes, which combined with a small (75-complaint) held-back
+# pool drained out entirely within a single testing session ("top shows
+# all complaints have arrived"). The pool this now draws from is much
+# larger (~588 of ~690 complaints held back at startup, see
+# replay_state.INITIAL_REVEALED_TOTAL), so this cadence can run for a full
+# multi-hour session without exhausting it, and a full backend restart
+# resets the pool anyway.
+_NEW_CASE_MIN_INTERVAL_SECONDS = 18
+_NEW_CASE_MAX_INTERVAL_SECONDS = 30
 
 # complaint_id -> {"stage": "received"|"predicted", "city": str|None,
 # "location": str|None, "confidence": float|None} -- in-memory, one
@@ -65,15 +102,8 @@ _stories: dict[int, dict] = {}
 _lock = threading.Lock()
 # Own throttle for real injections specifically, separate from the general
 # _emit_one() tick -- re-rolled after each real injection so the next one
-# is again 3-4 real minutes out, not a fixed schedule.
+# is again ~24s out, not a fixed schedule.
 _next_new_case_at = [0.0]
-# Ditto for ring_found: it has no natural pacing of its own (unlike
-# predict/decide, which are limited by how many stories are actually in
-# flight) -- without this it was the ONLY thing with something to say on
-# almost every idle tick between real case arrivals, so the feed read as
-# ring-detection spam with the actual case updates buried a dozen entries
-# deep. Verified live: 42 of 50 stored events were ring_detected.
-_next_ring_at = [0.0]
 
 
 def _start_story():
@@ -98,6 +128,11 @@ def _start_story():
         # own automatic advance. A real investigator's own city-scoped
         # Simulate Complaint click is a completely separate call and
         # unaffected by this running or not.
+        #
+        # replay_state.advance() only ever hands back a genuinely
+        # not-yet-revealed complaint, so this can't collide with a
+        # currently-active or already-completed simulated story -- those
+        # are all already-revealed complaints by definition.
         complaint = replay_state.advance(db)
         if complaint is None:
             return  # every held-back complaint has already been revealed
@@ -169,41 +204,17 @@ def _advance_to_decision():
     )
 
 
-def _emit_ring_found():
-    now = time.time()
-    with _lock:
-        if now < _next_ring_at[0]:
-            return
-        _next_ring_at[0] = now + random.uniform(_RING_MIN_INTERVAL_SECONDS, _RING_MAX_INTERVAL_SECONDS)
-
-    from api.rings import _cached_rings
-
-    rings = _cached_rings()
-    if not rings:
-        return
-    r = random.choice(rings)
-    cities = r["cities_touched"] or [None]
-    event_log.log_event(
-        "ring_detected",
-        f"Ring R-{r['community_id']:03d} detected",
-        f"{r['size']} accounts · {r['num_complaints']} linked complaints",
-        random.choice(cities),
-    )
-
-
 def _emit_one():
     # Only among actions actually READY to fire this tick -- each one owns
     # its own pacing (decide/predict are limited by what's really in
-    # flight; start/ring by their real-time throttles above). When nothing
-    # is ready, this does nothing, silently -- a quiet tick is correct and
-    # honest; manufacturing a ring_detected just to have SOMETHING to show
-    # is exactly what buried the real case updates before.
+    # flight; start by its own real-time throttle above). When nothing is
+    # ready, this does nothing, silently -- a quiet tick is correct and
+    # honest.
     now = time.time()
     with _lock:
         has_predicted = any(s["stage"] == "predicted" for s in _stories.values())
         has_received = any(s["stage"] == "received" for s in _stories.values())
         can_start = now >= _next_new_case_at[0] and len(_stories) < _MAX_ACTIVE_STORIES
-        can_ring = now >= _next_ring_at[0]
 
     actions, weights = [], []
     if has_predicted:
@@ -215,17 +226,12 @@ def _emit_one():
     if can_start and settings_state.get_inject_live_cases():
         actions.append("start")
         weights.append(2)
-    if can_ring:
-        actions.append("ring")
-        weights.append(1)
 
     if not actions:
         return
 
     choice = random.choices(actions, weights=weights)[0]
-    if choice == "ring":
-        _emit_ring_found()
-    elif choice == "start":
+    if choice == "start":
         _start_story()
     elif choice == "predict":
         _advance_to_prediction()

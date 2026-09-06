@@ -193,7 +193,7 @@ export function CashOutMapLegend() {
       ))}
       <span className="flex items-center gap-1.5">
         <span className="id-tag rounded-sm bg-white/10 px-1 text-[10px] font-semibold text-ink-secondary">%</span>
-        share of cases picking this spot
+        of cases picking this spot
       </span>
     </div>
   );
