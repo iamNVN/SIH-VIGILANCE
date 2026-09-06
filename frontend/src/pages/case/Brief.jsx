@@ -24,7 +24,7 @@ function downloadBrief(complaint, briefText) {
   if (!w) return;
   const generatedAt = new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
   w.document.write(`<!doctype html>
-<html><head><title>Intervention Brief — Case #${caseCode(complaint.id)}</title>
+<html><head><title>VIGILANCE - Intervention Brief — Case #${caseCode(complaint.id)}</title>
 <style>
   body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 48px auto; color: #1a1a1a; }
   h1 { font-family: Arial, sans-serif; font-size: 19px; margin: 0 0 4px; }
@@ -34,7 +34,7 @@ function downloadBrief(complaint, briefText) {
   @media print { body { margin: 0; } }
 </style></head>
 <body>
-  <h1>PredicTrace — Intervention Brief</h1>
+  <h1>VIGILANCE — Intervention Brief</h1>
   <div class="meta">Case #${caseCode(complaint.id)} · ${escapeHtml(complaint.victim_city || "")} · Generated ${generatedAt}</div>
   <div class="body">${escapeHtml(briefText)}</div>
   <div class="footer">Simulated recommendation — requires investigator sign-off, not an automated bank/account action.</div>

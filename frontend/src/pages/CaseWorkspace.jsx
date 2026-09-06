@@ -10,6 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import CashOutMap from "../components/CashOutMap";
 import SectionHeader from "../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../components/StateViews";
+import usePageTitle from "../hooks/usePageTitle";
 import { caseCode } from "../utils/caseCode";
 import { confidenceContext } from "../utils/confidence";
 
@@ -43,6 +44,10 @@ export default function CaseWorkspace() {
   const location = useLocation();
   const { user } = useAuth();
   const { data: complaint, error, loading } = useApi((signal) => api.getComplaint(id, signal), [id]);
+  // Overrides Layout.jsx's generic "Cases" title with the specific case
+  // once it loads -- a case workspace is really its own page, not a
+  // sub-view of the Cases list.
+  usePageTitle(complaint ? `Case #${caseCode(complaint.id)}` : "Cases");
   const { data: prediction, loading: predLoading, error: predError } = useApi(
     (signal) => api.predict(id, signal),
     [id]

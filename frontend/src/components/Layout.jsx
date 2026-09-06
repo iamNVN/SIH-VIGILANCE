@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import usePageTitle from "../hooks/usePageTitle";
 
 // Role actually gates two different things here: which PAGES show up at
 // all (Reports is administrator-only -- model/evaluation oversight isn't an
@@ -35,11 +36,23 @@ const NAV_ITEMS = [
   { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["investigator", "administrator"] },
 ];
 
+// Nested routes (a case's 4 tabs all live under /cases/:id) don't have
+// their own NAV_ITEMS entry -- CaseWorkspace.jsx sets its own, more
+// specific title once the complaint loads ("Case #ABCD"), so this is just
+// the reasonable placeholder for the brief moment before that happens.
+function pageTitleFor(pathname) {
+  const exact = NAV_ITEMS.find((item) => item.to === pathname);
+  if (exact) return exact.label;
+  if (pathname.startsWith("/cases/")) return "Cases";
+  return null;
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  usePageTitle(pageTitleFor(location.pathname));
 
   const handleLogout = () => {
     logout();
@@ -52,12 +65,17 @@ export default function Layout() {
       <div className="flex flex-1 overflow-hidden">
         <aside className="flex w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised">
           <div className="flex items-center gap-3 border-b border-surface-border px-5 py-5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-series-1 text-lg font-bold text-white">
-              P
+            {/* logo1.png bakes its own "VIGILANCE" wordmark in below the
+                icon mark -- cropped to just the icon here (real height set
+                larger than the frame, top-anchored) since the name/tagline
+                are already real text right next to it, not something to
+                duplicate tiny and unreadable inside the image. */}
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[#0a0e1a]">
+              <img src="/logo1.png" alt="" className="absolute left-1/2 top-0 h-[155%] w-auto max-w-none -translate-x-1/2" />
             </div>
             <div>
-              <p className="text-sm font-semibold leading-none text-ink-primary">PredicTrace</p>
-              <p className="mt-1 text-[11px] leading-tight text-ink-muted">Cash-out Intelligence<br />System</p>
+              <p className="text-sm font-semibold leading-none text-ink-primary">VIGILANCE</p>
+              <p className="mt-1 text-[11px] leading-tight text-ink-muted">Predictive Cash-Out<br />Intelligence</p>
             </div>
           </div>
 
@@ -99,7 +117,7 @@ export default function Layout() {
                 (real NCRP/bank data is access-restricted). Volunteering
                 that up front reads as rigor; a judge finding it out by
                 asking reads as evasion. */}
-            <div
+            {/* <div
               className="group relative mt-2 flex items-start gap-1.5 rounded-md border border-surface-border bg-white/5 px-3 py-2"
               title="The complaint/transaction dataset is synthetic but structurally realistic (real NCRP/bank data is access-restricted for this demo). Every model, graph, calibration and explanation computed on top of it is real and actually runs."
             >
@@ -107,14 +125,14 @@ export default function Layout() {
               <p className="text-[10.5px] leading-tight text-ink-muted">
                 Demo dataset is synthetic — the ML pipeline running on it is real.
               </p>
-            </div>
+            </div> */}
           </div>
 
           <div className="relative border-t border-surface-border p-3">
             {menuOpen && (
               <button
                 onClick={handleLogout}
-                className="absolute inset-x-3 bottom-full mb-1 rounded-md border border-surface-border bg-surface-card px-3 py-2 text-left text-xs font-medium text-status-critical shadow-lg hover:bg-white/5"
+                className="absolute inset-x-3 bottom-full mb-1 rounded-md border border-surface-border bg-surface-card px-3 py-2 text-left text-xs font-medium text-status-critical shadow-lg"
               >
                 Sign out
               </button>

@@ -68,7 +68,7 @@ export default function HowItWorksModal({ open, onClose }) {
           >
             <div className="mb-1 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-ink-primary">How PredicTrace works</h2>
+                <h2 className="text-lg font-semibold text-ink-primary">How VIGILANCE works</h2>
                 <p className="mt-0.5 text-xs text-ink-muted">
                   From a filed complaint to a ranked, explainable cash-out shortlist — the real pipeline, in order.
                 </p>

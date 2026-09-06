@@ -716,7 +716,7 @@ export default function CommandCenter() {
       </div>
 
       <p className="mt-8 text-center text-xs text-ink-muted">
-        PredicTrace v0.1.0 · Data is simulated for demonstration · All times shown in IST
+        VIGILANCE v0.1.0 · Data is simulated for demonstration · All times shown in IST
       </p>
 
       <HowItWorksModal open={showHowItWorks} onClose={() => setShowHowItWorks(false)} />

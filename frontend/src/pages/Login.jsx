@@ -1,12 +1,23 @@
 import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PERSONAS, useAuth } from "../auth/AuthContext";
+import usePageTitle from "../hooks/usePageTitle";
 
 const ROLE_LABEL = { investigator: "Investigator", administrator: "Administrator" };
+
+// Investigator vs administrator gets its own accent here (blue vs neutral)
+// regardless of hover state -- a real distinction (jurisdiction-scoped vs
+// national oversight, see AuthContext.jsx's own docstring), not decoration.
+const ROLE_BADGE = {
+  investigator: "bg-series-1/15 text-series-1 ring-1 ring-inset ring-series-1/30",
+  administrator: "bg-white/5 text-ink-secondary ring-1 ring-inset ring-white/10",
+};
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  usePageTitle("Login");
 
   const handlePick = (personaId) => {
     login(personaId);
@@ -14,68 +25,75 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex h-screen w-full items-center justify-center overflow-hidden bg-surface-page px-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(57,135,229,0.12),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-series-1 via-status-good to-series-1" />
+    <div className="relative flex h-screen w-full items-center justify-center overflow-hidden bg-[#050810]">
+      {/* loginbg.png already bakes in the header labels, VIGILANCE
+          logo/wordmark/tagline, the India map, and the footer strap --
+          real DOM text would only duplicate what's already drawn there.
+          This page overlays just the one genuinely interactive part: the
+          persona picker, positioned in the image's own empty middle band. */}
+      {/* <img src="/loginbg.jpeg" alt="VIGILANCE — Predictive Cash-Out Intelligence" className="absolute inset-0 h-full w-full object-cover" /> */}
+<video
+  autoPlay
+  loop
+  muted
+  playsInline
+  preload="auto"
+  className="absolute inset-0 h-full w-full object-cover"
+>
+  <source src="/loginbg.mp4" type="video/mp4" />
+</video>
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="relative w-full max-w-2xl rounded-md border border-surface-border bg-surface-card p-8"
-      >
-        <div className="mb-6 border-b border-surface-border pb-6 text-center">
-          <motion.div
-            initial={{ scale: 0.6, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4, delay: 0.1, ease: "backOut" }}
-            className="relative mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md bg-series-1 text-lg font-bold text-white"
-          >
-            PT
-          </motion.div>
-          <h1 className="text-xl font-semibold uppercase tracking-wide text-ink-primary">PredicTrace</h1>
-          <p className="text-sm text-ink-muted">Predictive cash-out intelligence for cybercrime complaints</p>
-          <p className="id-tag mt-2 text-[10px] uppercase tracking-wide text-ink-muted">
-            Cyber-Fraud Cash-Out Interdiction System · Demo Build
-          </p>
-        </div>
+      <div className="relative z-10 flex h-full w-full flex-col items-center px-4 pt-[42vh]">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
+          className="mb-6 text-center"
+        >
+          <h2 className="text-lg font-semibold uppercase tracking-[0.15em] text-white">Choose Your Profile</h2>
+          <p className="mt-1 text-xs text-white/50">Access the demo environment with a role-based account</p>
+        </motion.div>
 
-        <p className="mb-3 text-center text-xs font-medium uppercase tracking-wide text-ink-muted">
-          Choose a demo persona to continue
-        </p>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid w-full max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
           {PERSONAS.map((p, i) => (
             <motion.button
               key={p.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.15 + i * 0.06 }}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
+              transition={{ duration: 0.35, delay: 0.25 + i * 0.07, ease: "easeOut" }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => handlePick(p.id)}
-              className="flex items-center gap-3 rounded-md border border-surface-border bg-surface-raised p-4 text-left transition hover:border-series-1/40 hover:bg-series-1/10"
+              className="group flex flex-col items-center gap-3 rounded-lg border border-white/10 bg-black/40 px-4 py-6 text-center backdrop-blur-sm transition-colors hover:border-series-1/50 hover:bg-series-1/10"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white/10 text-sm font-semibold text-ink-secondary">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/10 text-base font-semibold text-white/70 transition-colors group-hover:bg-series-1 group-hover:text-white">
                 {p.initials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink-primary">{p.name}</p>
-                <p className="truncate text-xs text-ink-muted">{p.unit}</p>
-                <span className="mt-1 inline-block rounded-sm bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-secondary">
-                  {ROLE_LABEL[p.role]}
-                </span>
+                <p className="truncate text-sm font-semibold text-white">{p.name}</p>
+                <p className="truncate text-xs text-white/50">{p.unit}</p>
               </div>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${ROLE_BADGE[p.role]}`}
+              >
+                {ROLE_LABEL[p.role]}
+              </span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-white/40 transition-colors group-hover:border-series-1 group-hover:text-series-1">
+                <ArrowRight className="h-3 w-3" strokeWidth={2} />
+              </span>
             </motion.button>
           ))}
         </div>
 
-        <p className="mt-6 text-center text-[11px] text-ink-muted">
-          Demo-mode access control only — no password, no real accounts. Full role-based
-          access control with audit logging is part of the national deployment roadmap,
-          not this demo.
-        </p>
-      </motion.div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.6 }}
+          className="mt-5 max-w-lg text-center text-[10.5px] leading-relaxed text-white/35"
+        >
+          Demo-mode access control only. Full role-based access
+          control is part of the future enhancement.
+        </motion.p>
+      </div>
     </div>
   );
 }
