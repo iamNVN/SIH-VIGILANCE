@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Alerts from "./pages/Alerts";
 import Analytics from "./pages/Analytics";
+import AuditTrail from "./pages/AuditTrail";
 import Brief from "./pages/case/Brief";
 import CashOutMapPage from "./pages/case/CashOutMapPage";
 import FundFlowGraph from "./pages/case/FundFlowGraph";
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/predictions" element={<Predictions />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/maps" element={<Maps />} />
+            <Route path="/audit-trail" element={<AuditTrail />} />
             <Route
               path="/analytics"
               element={

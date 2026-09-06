@@ -88,8 +88,8 @@ export default function Settings() {
           <div>
             <p className="text-sm font-medium text-ink-primary">Inject Live Cases</p>
             <p className="text-xs text-ink-muted">
-              Reveals one real held-back complaint every 3-4 minutes (real case, real prediction -- see Command
-              Center) so the feed keeps moving between investigator actions.
+              Reveals one real held-back complaint roughly every 20-30 seconds (real case, real prediction -- see
+              Command Center) so the feed keeps moving between investigator actions.
             </p>
           </div>
           <Toggle

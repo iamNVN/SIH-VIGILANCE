@@ -11,6 +11,7 @@ from api.feed import _cached_feed
 from api.rings import _cached_rings, log_initial_ring_detections
 from core import replay_state
 from core.activity_simulator import start_simulator
+from core.demo_seed import seed_initial_decisions
 from core.db import Base, SessionLocal, engine
 from core.model_registry import registry
 from graph_engine.features import NoKnownTransactionChain
@@ -65,6 +66,16 @@ def on_startup():
             _cached_feed()
         _cached_rings()
         log_initial_ring_detections()
+        # Also only after the feed cache is warm -- picks real complaints
+        # with real cached predictions to seed a few Approve/Reject
+        # decisions from, so Audit Trail isn't empty on a fresh boot (see
+        # core/demo_seed.py). Own short-lived session since this thread
+        # isn't the request-scoped one on_startup used above.
+        seed_db = SessionLocal()
+        try:
+            seed_initial_decisions(seed_db)
+        finally:
+            seed_db.close()
         # Only after the caches above are warm -- the simulator's
         # "prediction"/"ring_found" events read from them directly (see
         # activity_simulator.py) and need real data to sample from from

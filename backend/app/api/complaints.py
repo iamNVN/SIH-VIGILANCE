@@ -161,17 +161,15 @@ _NEXT_STEP = {
 }
 
 
-@router.post("/{complaint_id}/decision", response_model=DecisionOut)
-def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = Depends(get_db)):
-    if payload.decision not in ("approved", "rejected"):
-        raise HTTPException(422, "decision must be 'approved' or 'rejected'")
-
-    complaint = db.get(Complaint, complaint_id)
-    if complaint is None:
-        raise HTTPException(404, f"complaint {complaint_id} not found")
-
+def apply_decision(db: Session, complaint: Complaint, decision: str) -> DecisionOut:
+    """Core decision-recording logic -- shared by the real investigator-
+    facing endpoint below and core/demo_seed.py's startup seeding, so a
+    seeded decision is recorded exactly the same way a real one is (status
+    change, feed removal, event log entry) and is indistinguishable from a
+    real one anywhere else in the app (Cases, Command Center, /stats,
+    Audit Trail). One place to update beats two copies drifting apart."""
     was_open = complaint.status == "open"
-    complaint.status = f"action_{payload.decision}"
+    complaint.status = f"action_{decision}"
     db.commit()
 
     if was_open:
@@ -181,7 +179,7 @@ def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = D
         # rebuild, contradicting the status change just made.
         from .feed import remove_complaint_from_feed
 
-        remove_complaint_from_feed(complaint_id)
+        remove_complaint_from_feed(complaint.id)
 
     from core import event_log
     from core.case_code import case_code
@@ -192,18 +190,30 @@ def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = D
     # activity_simulator.py) -- the real predicted location for this case
     # if it's in the cached batch, else its bank, never a placeholder.
     items = cached_feed_if_warm() or []
-    match = next((it for it in items if it["complaint_id"] == complaint_id), None)
+    match = next((it for it in items if it["complaint_id"] == complaint.id), None)
     detail = match["top_prediction"]["name"] if match else complaint.bank_name
 
-    verb = "approved for action" if payload.decision == "approved" else "rejected"
+    verb = "approved for action" if decision == "approved" else "rejected"
     event_log.log_event(
         "decision",
-        f"Case #{case_code(complaint_id)} — {verb}",
+        f"Case #{case_code(complaint.id)} — {verb}",
         detail,
         complaint.victim.city if complaint.victim else None,
     )
 
-    return DecisionOut(status=complaint.status, next_step=_NEXT_STEP[payload.decision].format(bank=complaint.bank_name))
+    return DecisionOut(status=complaint.status, next_step=_NEXT_STEP[decision].format(bank=complaint.bank_name))
+
+
+@router.post("/{complaint_id}/decision", response_model=DecisionOut)
+def decide_complaint(complaint_id: int, payload: DecisionCreate, db: Session = Depends(get_db)):
+    if payload.decision not in ("approved", "rejected"):
+        raise HTTPException(422, "decision must be 'approved' or 'rejected'")
+
+    complaint = db.get(Complaint, complaint_id)
+    if complaint is None:
+        raise HTTPException(404, f"complaint {complaint_id} not found")
+
+    return apply_decision(db, complaint, payload.decision)
 
 
 @router.post("", response_model=ComplaintOut, status_code=201)

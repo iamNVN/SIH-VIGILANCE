@@ -54,7 +54,7 @@ export const api = {
   rings: (limit = 50, city, signal) => request(`/rings${qs({ limit, city })}`, { signal }),
   predictionsFeed: (limit = 40, city, signal) => request(`/feed/predictions${qs({ limit, city })}`, { signal }),
   alertsFeed: (limit = 40, city, signal, sort) => request(`/feed/alerts${qs({ limit, city, sort })}`, { signal }),
-  events: (city, limit = 20, signal) => request(`/events${qs({ city, limit })}`, { signal }),
+  events: (city, limit = 20, signal, eventType) => request(`/events${qs({ city, limit, event_type: eventType })}`, { signal }),
   triggerNext: (city) => request(`/stream/trigger-next${qs({ city })}`, { method: "POST" }),
   resetStream: () => request("/stream/reset", { method: "POST" }),
   streamStatus: (city, signal) => request(`/stream/status${qs({ city })}`, { signal }),

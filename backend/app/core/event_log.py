@@ -67,9 +67,11 @@ def log_event(event_type: str, message: str, detail: str, city: Optional[str]):
         })
 
 
-def get_events(city: Optional[str] = None, limit: int = 20) -> list[dict]:
+def get_events(city: Optional[str] = None, limit: int = 20, event_type: Optional[str] = None) -> list[dict]:
     with _lock:
         items = list(_events)
     if city:
         items = [e for e in items if e["city"] == city]
+    if event_type:
+        items = [e for e in items if e["type"] == event_type]
     return items[: min(limit, _MAX_EVENTS)]

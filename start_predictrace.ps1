@@ -9,6 +9,14 @@
     listening. A fresh clone gets a full first-time setup automatically;
     a machine that's already set up just gets both servers started.
 
+    Both servers run as background jobs of THIS script, not separate
+    windows -- their output is streamed into this one terminal (prefixed
+    [backend]/[frontend]), and Ctrl+C here stops both. To cycle just one
+    server on its own (e.g. after a backend-only code change), use
+    restart_backend.ps1 or restart_frontend.ps1 instead. To stop everything
+    from a different terminal without Ctrl+C'ing this one, use
+    stop_predictrace.ps1.
+
     Backend listens on 8001, not FastAPI's default 8000 -- an orphaned
     process from an earlier session got stuck on 8000 on this machine and
     couldn't be killed through any available channel (see PROGRESS_LOG.md).
@@ -111,36 +119,50 @@ if (-not (Test-Path (Join-Path $Frontend "node_modules"))) {
     Write-Ok "Frontend dependencies already installed."
 }
 
-# 6. Start backend (new window, stays open so you can see logs)
+function Stop-PortProcess([int]$Port) {
+    Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique |
+        ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+}
+
+# 6. Start backend + frontend as background jobs of THIS session, not new
+# windows -- both servers' output streams into this one terminal, prefixed
+# so you can tell them apart. Ctrl+C here stops both (see the finally block
+# below); closing this one window is the only "close all" you need.
 if (Test-PortListening $BackendPort) {
-    Write-Warn "Backend already running on port $BackendPort -- leaving it alone."
+    Write-Warn "Backend already running on port $BackendPort -- leaving it alone. Use restart_backend.ps1 to cycle it."
+    $backendJob = $null
 } else {
     Write-Step "Starting backend on port $BackendPort..."
-    Start-Process powershell -ArgumentList @(
-        "-NoExit", "-Command",
-        "cd '$BackendApp'; & '$VenvPython' -m uvicorn main:app --host 127.0.0.1 --port $BackendPort"
-    ) | Out-Null
+    $backendJob = Start-Job -Name "PredicTrace-Backend" -ScriptBlock {
+        param($BackendApp, $VenvPython, $BackendPort)
+        Set-Location $BackendApp
+        & $VenvPython -m uvicorn main:app --host 127.0.0.1 --port $BackendPort 2>&1
+    } -ArgumentList $BackendApp, $VenvPython, $BackendPort
 }
 
-# 7. Start frontend (new window, stays open so you can see logs)
 if (Test-PortListening $FrontendPort) {
-    Write-Warn "Frontend already running on port $FrontendPort -- leaving it alone."
+    Write-Warn "Frontend already running on port $FrontendPort -- leaving it alone. Use restart_frontend.ps1 to cycle it."
+    $frontendJob = $null
 } else {
     Write-Step "Starting frontend on port $FrontendPort..."
-    Start-Process powershell -ArgumentList @(
-        "-NoExit", "-Command",
-        "cd '$Frontend'; npm run dev"
-    ) | Out-Null
+    $frontendJob = Start-Job -Name "PredicTrace-Frontend" -ScriptBlock {
+        param($Frontend)
+        Set-Location $Frontend
+        npm run dev 2>&1
+    } -ArgumentList $Frontend
+    # Vite's startup banner uses a UTF-8 arrow character that renders as
+    # "Γ₧£" once piped through a background job's captured output -- known,
+    # purely cosmetic (the URL/port text around it is unaffected), not
+    # worth chasing further; ignore it.
 }
 
-# 8. Wait for both to actually come up before declaring victory
+# 7. Wait for both to actually come up before declaring victory
 Write-Step "Waiting for both services to come online..."
 $maxWaitSeconds = 45
 $elapsed = 0
 while ($elapsed -lt $maxWaitSeconds) {
-    $backendUp = Test-PortListening $BackendPort
-    $frontendUp = Test-PortListening $FrontendPort
-    if ($backendUp -and $frontendUp) { break }
+    if ((Test-PortListening $BackendPort) -and (Test-PortListening $FrontendPort)) { break }
     Start-Sleep -Seconds 1
     $elapsed++
 }
@@ -149,12 +171,38 @@ Write-Host ""
 if (Test-PortListening $BackendPort) {
     Write-Host "Backend:  http://127.0.0.1:$BackendPort/docs" -ForegroundColor Green
 } else {
-    Write-Host "Backend did not come up within ${maxWaitSeconds}s -- check its window for errors." -ForegroundColor Red
+    Write-Host "Backend did not come up within ${maxWaitSeconds}s -- check the [backend] lines below for errors." -ForegroundColor Red
 }
 if (Test-PortListening $FrontendPort) {
     Write-Host "Frontend: http://localhost:$FrontendPort" -ForegroundColor Green
 } else {
-    Write-Host "Frontend did not come up within ${maxWaitSeconds}s -- check its window for errors." -ForegroundColor Red
+    Write-Host "Frontend did not come up within ${maxWaitSeconds}s -- check the [frontend] lines below for errors." -ForegroundColor Red
 }
 Write-Host ""
-Write-Host "Both servers run in their own windows -- close those windows (or Ctrl+C in them) to stop them." -ForegroundColor DarkGray
+Write-Host "Both servers are running in THIS window. Press Ctrl+C to stop both." -ForegroundColor DarkGray
+Write-Host "(To restart just one without the other, use restart_backend.ps1 / restart_frontend.ps1 in a separate terminal.)" -ForegroundColor DarkGray
+Write-Host ""
+
+$jobs = @($backendJob, $frontendJob) | Where-Object { $_ -ne $null }
+try {
+    # Streams both jobs' output into this one console, live, prefixed by
+    # source, until Ctrl+C -- that's the whole point of using jobs instead
+    # of Start-Process's separate windows.
+    while ($jobs | Where-Object { $_.State -eq "Running" }) {
+        if ($backendJob) { Receive-Job $backendJob | ForEach-Object { Write-Host "[backend]  $_" -ForegroundColor Cyan } }
+        if ($frontendJob) { Receive-Job $frontendJob | ForEach-Object { Write-Host "[frontend] $_" -ForegroundColor Yellow } }
+        Start-Sleep -Milliseconds 300
+    }
+    Write-Warn "A job exited on its own -- check the output above."
+} finally {
+    Write-Host ""
+    Write-Step "Stopping both servers..."
+    if ($jobs) { Stop-Job $jobs -ErrorAction SilentlyContinue; Remove-Job $jobs -Force -ErrorAction SilentlyContinue }
+    # Belt-and-suspenders: Stop-Job kills the job's own process, but not
+    # reliably every child it spawned (uvicorn/node) on Windows -- a stuck
+    # port from an orphaned child has bitten this project before (see
+    # PROGRESS_LOG.md), so kill by port too, not just by job.
+    Stop-PortProcess $BackendPort
+    Stop-PortProcess $FrontendPort
+    Write-Ok "Stopped."
+}

@@ -11,5 +11,5 @@ router = APIRouter(tags=["events"])
 
 
 @router.get("/events")
-def list_events(city: Optional[str] = None, limit: int = 20):
-    return {"events": event_log.get_events(city=city, limit=limit)}
+def list_events(city: Optional[str] = None, limit: int = 20, event_type: Optional[str] = None):
+    return {"events": event_log.get_events(city=city, limit=limit, event_type=event_type)}

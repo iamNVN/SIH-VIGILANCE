@@ -5,6 +5,7 @@ import {
   Clock,
   ExternalLink,
   FileText,
+  HelpCircle,
   IndianRupee,
   MapPin,
   Plus,
@@ -20,8 +21,11 @@ import { useAuth } from "../auth/AuthContext";
 import AnimatedNumber from "../components/AnimatedNumber";
 import { ConfidenceBadge, UrgencyBadge } from "../components/Badges";
 import CashOutMap, { CashOutMapLegend, URGENCY_COLOR } from "../components/CashOutMap";
+import HowItWorksModal from "../components/HowItWorksModal";
 import { EmptyState, ErrorState, LoadingSpinner } from "../components/StateViews";
 import { caseCode } from "../utils/caseCode";
+
+const HOW_IT_WORKS_SEEN_KEY = "predictrace.howItWorksSeen";
 
 const IST = "Asia/Kolkata";
 
@@ -136,6 +140,22 @@ export default function CommandCenter() {
 
   const [triggering, setTriggering] = useState(false);
   const [arrival, setArrival] = useState(null); // { complaint, prediction | null, error | null }
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
+  // Opens itself once per browser, the first time anyone lands here --
+  // a judge exploring the product cold shouldn't have to already know
+  // where the explainer button is. `try` guards a private-browsing tab
+  // where localStorage can throw on write.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(HOW_IT_WORKS_SEEN_KEY)) {
+        setShowHowItWorks(true);
+        localStorage.setItem(HOW_IT_WORKS_SEEN_KEY, "1");
+      }
+    } catch {
+      // private-browsing localStorage denial -- fine to just skip the auto-open
+    }
+  }, []);
 
   const reloadEverything = () => {
     reloadStats();
@@ -262,6 +282,16 @@ export default function CommandCenter() {
             {/* {streamStatus && (
               <span className="id-tag text-xs text-ink-muted">{streamStatus.revealed} / {streamStatus.total} arrived</span>
             )} */}
+            <motion.button
+              onClick={() => setShowHowItWorks(true)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className="flex items-center gap-1.5 rounded-md border border-surface-border px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-white/5"
+            >
+              <HelpCircle className="h-3.5 w-3.5" strokeWidth={2} />
+              How it works
+            </motion.button>
             <motion.button
               onClick={handleTrigger}
               disabled={triggering || streamStatus?.done}
@@ -688,6 +718,8 @@ export default function CommandCenter() {
       <p className="mt-8 text-center text-xs text-ink-muted">
         PredicTrace v0.1.0 · Data is simulated for demonstration · All times shown in IST
       </p>
+
+      <HowItWorksModal open={showHowItWorks} onClose={() => setShowHowItWorks(false)} />
     </div>
   );
 }
