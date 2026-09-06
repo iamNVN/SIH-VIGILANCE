@@ -56,7 +56,7 @@ def _log_reveal_events(complaint):
     city = complaint.victim.city if complaint.victim else None
     event_log.log_event(
         "complaint_received",
-        f"Case #{case_code(complaint.id)} — New complaint received",
+        f"#{case_code(complaint.id)} — New complaint received",
         f"₹{complaint.amount_lost:,.0f} · {city or 'Unknown city'}",
         city,
     )
@@ -64,7 +64,7 @@ def _log_reveal_events(complaint):
     if ring is not None:
         event_log.log_event(
             "ring_linked",
-            f"Case #{case_code(complaint.id)} — linked to Ring R-{ring['community_id']:03d}",
+            f"#{case_code(complaint.id)} — linked to Ring R-{ring['community_id']:03d}",
             f"{ring['size']} accounts · {ring['num_complaints']} linked complaints",
             city,
         )

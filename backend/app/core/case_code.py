@@ -3,8 +3,8 @@ case_code.py -- the SAME scrambled 4-char display code the frontend shows
 for a complaint (frontend/src/utils/caseCode.js), reimplemented here so
 backend-emitted text (the Live Investigation Feed's event messages) names
 a case identically to however the UI is already showing it elsewhere --
-"Case #FLYY" here must mean the same complaint as "#FLYY" on the Cases
-page, not a second, disagreeing label for it.
+"#FLYY" here must mean the same complaint as "#FLYY" on the Cases page,
+not a second, disagreeing label for it.
 
 Bijective (no two complaint ids ever collide on the same code): M = 36^4
 factors only into 2 and 3, so any multiplier coprime to 6 is coprime to M,

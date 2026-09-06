@@ -130,7 +130,7 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
         top = predictions[0]
         event_log.log_event(
             "prediction_generated",
-            f"Case #{case_code(complaint_id)} — Cash-out prediction generated",
+            f"#{case_code(complaint_id)} — Cash-out prediction generated",
             f"{top['name']} · {round(top['confidence'] * 100, 1)}%",
             complaint.victim.city if complaint.victim else None,
         )

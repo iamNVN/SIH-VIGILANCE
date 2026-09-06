@@ -168,6 +168,18 @@ def apply_decision(db: Session, complaint: Complaint, decision: str) -> Decision
     change, feed removal, event log entry) and is indistinguishable from a
     real one anywhere else in the app (Cases, Command Center, /stats,
     Audit Trail). One place to update beats two copies drifting apart."""
+    from .feed import cached_feed_if_warm
+
+    # Looked up BEFORE removing the complaint from the cached feed below --
+    # reversing this order was a real bug: remove_complaint_from_feed() drops
+    # this complaint from `items`, so the lookup would always miss and every
+    # real decision (approved or rejected alike) fell back to just the bank
+    # name instead of the actual predicted location. Same detail line the
+    # simulated version of this event shows (see activity_simulator.py).
+    items = cached_feed_if_warm() or []
+    match = next((it for it in items if it["complaint_id"] == complaint.id), None)
+    detail = match["top_prediction"]["name"] if match else complaint.bank_name
+
     was_open = complaint.status == "open"
     complaint.status = f"action_{decision}"
     db.commit()
@@ -184,19 +196,10 @@ def apply_decision(db: Session, complaint: Complaint, decision: str) -> Decision
     from core import event_log
     from core.case_code import case_code
 
-    from .feed import cached_feed_if_warm
-
-    # Same detail line the simulated version of this event shows (see
-    # activity_simulator.py) -- the real predicted location for this case
-    # if it's in the cached batch, else its bank, never a placeholder.
-    items = cached_feed_if_warm() or []
-    match = next((it for it in items if it["complaint_id"] == complaint.id), None)
-    detail = match["top_prediction"]["name"] if match else complaint.bank_name
-
-    verb = "approved for action" if decision == "approved" else "rejected"
+    verb = "Approved for action" if decision == "approved" else "Rejected"
     event_log.log_event(
         "decision",
-        f"Case #{case_code(complaint.id)} — {verb}",
+        f"#{case_code(complaint.id)} — {verb}",
         detail,
         complaint.victim.city if complaint.victim else None,
     )

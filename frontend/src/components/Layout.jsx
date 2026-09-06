@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
+  BarChart3,
   ChevronDown,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   FileText,
   Folder,
   Home,
-  Info,
   MapPin,
   Settings as SettingsIcon,
   Share2,
@@ -27,7 +30,7 @@ import usePageTitle from "../hooks/usePageTitle";
 const NAV_ITEMS = [
   { to: "/", label: "Command Center", icon: Home, roles: ["investigator", "administrator"] },
   { to: "/cases", label: "Cases", icon: Folder, roles: ["investigator", "administrator"] },
-  { to: "/rings", label: "Network Graph", icon: Share2, roles: ["investigator", "administrator"] },
+  { to: "/rings", label: "Fraud Rings", icon: Share2, roles: ["investigator", "administrator"] },
   // { to: "/predictions", label: "Predictions", icon: Target, roles: ["investigator", "administrator"] },
   // { to: "/alerts", label: "Alerts", icon: Bell, roles: ["investigator", "administrator"] },
   { to: "/maps", label: "Maps", icon: MapPin, roles: ["investigator", "administrator"] },
@@ -47,11 +50,19 @@ function pageTitleFor(pathname) {
   return null;
 }
 
+// Matches NavLink's own `end`-aware active logic, computed once here so the
+// glowing accent bar (a sibling of NavLink, not something inside it) and
+// NavLink's own styling never disagree about which item is active.
+function isNavItemActive(pathname, item) {
+  return item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   usePageTitle(pageTitleFor(location.pathname));
 
   const handleLogout = () => {
@@ -63,70 +74,104 @@ export default function Layout() {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-surface-page">
       <div className="h-[3px] shrink-0 bg-gradient-to-r from-series-1 via-status-good to-series-1" />
       <div className="flex flex-1 overflow-hidden">
-        <aside className="flex w-64 shrink-0 flex-col border-r border-surface-border bg-surface-raised">
-          <div className="flex items-center gap-3 border-b border-surface-border px-5 py-5">
+        <motion.aside
+          animate={{ width: collapsed ? 80 : 255 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="relative flex shrink-0 flex-col overflow-hidden border-r border-surface-border bg-surface-raised"
+        >
+          <div className="relative flex items-center gap-3 border-b border-surface-border px-5 py-6">
             {/* logo1.png bakes its own "VIGILANCE" wordmark in below the
                 icon mark -- cropped to just the icon here (real height set
                 larger than the frame, top-anchored) since the name/tagline
                 are already real text right next to it, not something to
                 duplicate tiny and unreadable inside the image. */}
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[#0a0e1a]">
-              <img src="/logo1.png" alt="" className="absolute left-1/2 top-0 h-[155%] w-auto max-w-none -translate-x-1/2" />
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#0a0e1a]">
+              <img src="/logo1.png" alt="" className="absolute left-1/2 top-0 h-[160%] w-auto max-w-none -translate-x-1/2 -mt-1" />
             </div>
-            <div>
-              <p className="text-sm font-semibold leading-none text-ink-primary">VIGILANCE</p>
-              <p className="mt-1 text-[11px] leading-tight text-ink-muted">Predictive Cash-Out<br />Intelligence</p>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0 mt-2">
+                <p className="text-base font-semibold leading-none tracking-wide text-ink-primary">VIGILANCE</p>
+                <p className="mt-1.5 text-[9px] font-medium leading-normal tracking-[0.2em] text-ink-muted">
+                  PREDICTIVE CASH-OUT<br />INTELLIGENCE
+                </p>
+              </div>
+            )}
           </div>
 
-          <nav className="flex-1 space-y-1 px-3 py-4">
+          {/* <button
+            onClick={() => setCollapsed((v) => !v)}
+            className="absolute right-3 top-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 text-ink-muted transition hover:bg-white/5 hover:text-ink-primary"
+          >
+            {collapsed ? <ChevronsRight className="h-3.5 w-3.5" strokeWidth={2} /> : <ChevronsLeft className="h-3.5 w-3.5" strokeWidth={2} />}
+          </button> */}
+
+          <nav className="flex-1 space-y-2 px-3 py-4">
             {NAV_ITEMS.filter((item) => item.roles.includes(user?.role)).map((item) => {
               const Icon = item.icon;
+              const active = isNavItemActive(location.pathname, item);
               return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition ${isActive ? "bg-series-1 text-white" : "text-ink-secondary hover:bg-white/5 hover:text-ink-primary"
-                    }`
-                  }
-                >
-                  <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-                  {item.label}
-                </NavLink>
+                <div key={item.to} className="relative">
+                  {active && (
+                    <span className="absolute -left-3 top-1/2 h-9 w-1 -translate-y-1/2 rounded-full bg-series-1 " />
+                  )}
+                  <NavLink
+                    to={item.to}
+                    end={item.to === "/"}
+                    title={collapsed ? item.label : undefined}
+                    className={`flex items-center gap-3 rounded-xl border pl-4 px-3.5 py-3.5 text-sm font-semibold transition ${active
+                      ? "border-series-1/50 bg-gradient-to-br from-series-1/55 via-series-1/30 to-series-1/10 text-white shadow-[0_4px_20px_-4px_rgba(59,130,246,0.3),inset_0_1px_0_rgba(255,255,255,0.15)]"
+                      : "border-transparent text-ink-secondary hover:bg-white/5 hover:text-ink-primary"
+                      } ${collapsed ? "justify-center" : ""}`}
+                  >
+                    <Icon
+                      className={`h-[18px] w-[18px] shrink-0 ${active ? "drop-shadow-[0_0_6px_rgba(96,165,250,0.9)]" : ""}`}
+                      strokeWidth={2}
+                    />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <ChevronRight className={`h-4 w-4 shrink-0 ${active ? "text-blue-200" : "text-ink-muted/40"}`} strokeWidth={2} />
+                      </>
+                    )}
+                  </NavLink>
+                </div>
               );
             })}
           </nav>
 
-          <div className="px-3 pb-3">
-            <div className="rounded-md border border-status-good/25 bg-status-good/10 px-3 py-2.5">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
-                </span>
-                <span className="text-xs font-semibold text-status-good">System Online</span>
+          {!collapsed && (
+            <div className="px-3 pb-3">
+              <div className="flex items-center justify-between rounded-md border border-status-good/25 bg-status-good/10 px-3 py-2.5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-good opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-status-good" />
+                    </span>
+                    <span className="text-xs font-semibold text-status-good">System Online</span>
+                  </div>
+                  <p className="mt-0.5 pl-4 text-[11px] text-ink-muted">All systems operational</p>
+                </div>
+                <BarChart3 className="h-4 w-4 shrink-0 text-status-good/60" strokeWidth={2} />
               </div>
-              <p className="mt-0.5 pl-4 text-[11px] text-ink-muted">All systems operational</p>
+              {/* Said once, plainly, everywhere -- not buried in a README a
+                  judge would have to go looking for. The ML pipeline (graph
+                  construction, calibration, SHAP) is real and runs live; only
+                  the underlying complaint/transaction dataset is synthetic
+                  (real NCRP/bank data is access-restricted). Volunteering
+                  that up front reads as rigor; a judge finding it out by
+                  asking reads as evasion. */}
+              {/* <div
+                className="group relative mt-2 flex items-start gap-1.5 rounded-md border border-surface-border bg-white/5 px-3 py-2"
+                title="The complaint/transaction dataset is synthetic but structurally realistic (real NCRP/bank data is access-restricted for this demo). Every model, graph, calibration and explanation computed on top of it is real and actually runs."
+              >
+                <Info className="mt-0.5 h-3 w-3 shrink-0 text-ink-muted" strokeWidth={2} />
+                <p className="text-[10.5px] leading-tight text-ink-muted">
+                  Demo dataset is synthetic — the ML pipeline running on it is real.
+                </p>
+              </div> */}
             </div>
-            {/* Said once, plainly, everywhere -- not buried in a README a
-                judge would have to go looking for. The ML pipeline (graph
-                construction, calibration, SHAP) is real and runs live; only
-                the underlying complaint/transaction dataset is synthetic
-                (real NCRP/bank data is access-restricted). Volunteering
-                that up front reads as rigor; a judge finding it out by
-                asking reads as evasion. */}
-            {/* <div
-              className="group relative mt-2 flex items-start gap-1.5 rounded-md border border-surface-border bg-white/5 px-3 py-2"
-              title="The complaint/transaction dataset is synthetic but structurally realistic (real NCRP/bank data is access-restricted for this demo). Every model, graph, calibration and explanation computed on top of it is real and actually runs."
-            >
-              <Info className="mt-0.5 h-3 w-3 shrink-0 text-ink-muted" strokeWidth={2} />
-              <p className="text-[10.5px] leading-tight text-ink-muted">
-                Demo dataset is synthetic — the ML pipeline running on it is real.
-              </p>
-            </div> */}
-          </div>
+          )}
 
           <div className="relative border-t border-surface-border p-3">
             {menuOpen && (
@@ -139,19 +184,35 @@ export default function Layout() {
             )}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition hover:bg-white/5"
+              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition hover:bg-white/5 ${collapsed ? "justify-center" : ""}`}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-series-1/20 text-xs font-semibold text-series-1">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-series-1/20 text-xs font-semibold text-series-1 ring-2 ring-series-1/40">
                 {user?.initials}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium leading-none text-ink-primary">{user?.name}</p>
-                <p className="truncate text-[11px] capitalize text-ink-muted">{user?.role}</p>
-              </div>
-              <ChevronDown className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${menuOpen ? "rotate-180" : ""}`} strokeWidth={2} />
+              {!collapsed && (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium leading-none text-ink-primary">{user?.name}</p>
+                    <p className="truncate text-[11px] capitalize text-ink-muted">{user?.role}</p>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-ink-muted transition-transform ${menuOpen ? "rotate-180" : ""}`} strokeWidth={2} />
+                </>
+              )}
             </button>
           </div>
-        </aside>
+
+          {/* {!collapsed && (
+            <div className="relative overflow-hidden border-t border-surface-border px-3 py-2.5">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-[0.12]"
+                style={{ backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)", backgroundSize: "7px 7px" }}
+              />
+              <p className="relative flex items-center justify-center gap-2 text-[10px] font-medium tracking-[0.15em] text-ink-muted">
+                <span className="h-px w-4 bg-surface-border" /> SECURE · ANALYSE · PREVENT
+              </p>
+            </div>
+          )} */}
+        </motion.aside>
 
         <main className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">

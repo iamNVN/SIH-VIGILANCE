@@ -571,9 +571,9 @@ export default function CommandCenter() {
                           <span className="id-tag bg-white/5 shrink-0 text-xs font-semibold text-ink-secondary px-1">
                             {new Date(ev.timestamp).toLocaleTimeString("en-IN", { timeZone: IST, hour: "numeric", minute: "2-digit" })}
                           </span>
-                          <span className="min-w-0 truncate text-sm font-medium text-ink-primary">{ev.message}</span>
+                          <span className="min-w-0 truncate text-sm font-medium text-ink-primary" title={ev.message}>{ev.message}</span>
                         </p>
-                        {ev.detail && <p className="mt-0.5 truncate text-xs text-ink-muted">{ev.detail}</p>}
+                        {ev.detail && <p className="mt-0.5 truncate text-xs text-ink-muted" title={ev.detail}>{ev.detail}</p>}
                       </div>
                     </motion.li>
                   ))}

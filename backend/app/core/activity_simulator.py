@@ -143,7 +143,7 @@ def _start_story():
             _next_new_case_at[0] = now + random.uniform(_NEW_CASE_MIN_INTERVAL_SECONDS, _NEW_CASE_MAX_INTERVAL_SECONDS)
         event_log.log_event(
             "complaint_received",
-            f"Case #{case_code(complaint.id)} — New complaint received",
+            f"#{case_code(complaint.id)} — New complaint received",
             f"₹{complaint.amount_lost:,.0f} · {city or 'Unknown city'}",
             city,
         )
@@ -178,7 +178,7 @@ def _advance_to_prediction():
         city = story["city"]
     event_log.log_event(
         "prediction_generated",
-        f"Case #{case_code(cid)} — Cash-out prediction generated",
+        f"#{case_code(cid)} — Cash-out prediction generated",
         f"{tp['name']} · {round(tp['confidence'] * 100, 1)}%",
         city,
     )
@@ -195,10 +195,10 @@ def _advance_to_decision():
     if story is None:
         return
     decision = random.choices(["approved", "rejected"], weights=[7, 3])[0]
-    verb = "approved for action" if decision == "approved" else "rejected"
+    verb = "Approved for action" if decision == "approved" else "Rejected"
     event_log.log_event(
         "decision",
-        f"Case #{case_code(cid)} — {verb}",
+        f"#{case_code(cid)} — {verb}",
         story.get("location") or story["bank"],
         story["city"],
     )

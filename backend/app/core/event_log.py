@@ -28,7 +28,7 @@ close together -- e.g. an investigator opening a case's workspace (a real
 /predict call) while activity_simulator.py's own story for that exact
 complaint also happens to reach its "predict" step around the same time.
 Both log calls are individually honest, but showing both is just visual
-noise ("Case #0U00 -- Cash-out prediction generated" twice, verified
+noise ("#0U00 -- Cash-out prediction generated" twice, verified
 live). If the same (type, message) pair was already logged within
 _DEDUPE_WINDOW_SECONDS, the repeat is silently dropped here rather than
 appended -- one real event, not a manufactured pair of them.
