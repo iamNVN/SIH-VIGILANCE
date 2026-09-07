@@ -35,6 +35,7 @@ export const api = {
   stats: (city, signal) => request(`/stats${qs({ city })}`, { signal }),
   statsTimeseries: (days = 7, city, signal) => request(`/stats/timeseries${qs({ days, city })}`, { signal }),
   statsHotspots: (limit = 5, city, signal) => request(`/stats/hotspots${qs({ limit, city })}`, { signal }),
+  statsHeatmap: (city, days, category, signal) => request(`/stats/heatmap${qs({ city, days, category })}`, { signal }),
   listComplaints: (limit = 50, skip = 0, q = "", city, signal, sort, status, revealed) =>
     request(`/complaints${qs({ limit, skip, q, city, sort, status, revealed })}`, { signal }),
   countComplaints: (q = "", city, signal, status, revealed) =>
@@ -62,4 +63,7 @@ export const api = {
   getInjectLiveCases: (signal) => request("/settings/inject-live-cases", { signal }),
   setInjectLiveCases: (enabled) =>
     request("/settings/inject-live-cases", { method: "POST", body: JSON.stringify({ enabled }) }),
+  feedbackSummary: (signal) => request("/feedback/summary", { signal }),
+  retrainStatus: (signal) => request("/feedback/retrain/status", { signal }),
+  triggerRetrain: () => request("/feedback/retrain/trigger", { method: "POST" }),
 };

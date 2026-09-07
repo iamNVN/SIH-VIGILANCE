@@ -19,7 +19,7 @@ DATA ACCESS for a demo, not production-grade security.
 
 import time
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -193,3 +193,64 @@ def get_hotspots(limit: int = 5, city: Optional[str] = None):
         h["share_pct"] = round(100 * h["count"] / total, 1)
 
     return {"hotspots": hotspots, "n_cases": total}
+
+
+# Real, derivable crime-category signal (PS deliverable b: "drill-down
+# filters by ... crime category") -- not invented for this filter. The
+# synthetic generator's own NARRATIVE_TEMPLATES (data/generator/
+# generate_synthetic_data.py) has exactly 4 distinct fraud patterns; each
+# complaint's real narrative text deterministically matches exactly one,
+# since the phrase each key below checks for appears in only one template.
+_CATEGORY_KEYWORDS = {
+    "otp_fraud": "OTP",
+    "kyc_scam": "KYC",
+    "fake_verification": "verification transfer",
+    "phishing_sms": "phishing SMS",
+}
+_CATEGORY_LABELS = {
+    "otp_fraud": "OTP Phone Fraud",
+    "kyc_scam": "Fake KYC Update",
+    "fake_verification": "Fake Verification Call",
+    "phishing_sms": "Phishing SMS",
+}
+
+
+@router.get("/stats/heatmap")
+def get_heatmap(city: Optional[str] = None, days: Optional[int] = None, category: Optional[str] = None, db: Session = Depends(get_db)):
+    """Real GIS heat-layer data for the Risk Heatmap Dashboard (PS
+    deliverable b: "GIS-enabled dashboard visualizing real-time and
+    potential risk zones with drill-down filters by time, location, and
+    crime category"). Each point is a currently open, already-scored
+    complaint's real top predicted cash-out location, weighted by that
+    prediction's real confidence -- never a synthetic density surface.
+    `city`/`days` filter the same cached feed every other panel already
+    uses; `category` is the one filter that needs a real DB lookup
+    (narrative text isn't in the feed cache), scoped to just the
+    already-filtered complaint ids so it stays cheap.
+    """
+    items = _cached_feed()
+    if city:
+        items = [it for it in items if it["victim_city"] == city]
+    if days:
+        # Anchored to the dataset's own latest complaint date, not real
+        # wall-clock time -- get_timeseries (above) anchors the same way,
+        # since the dataset's dates are fictional and "last 7 days"
+        # against datetime.utcnow() would filter out everything once the
+        # real calendar moves past the dataset's own date range.
+        latest = max((it["filed_at"] for it in items), default=None)
+        if latest:
+            cutoff = datetime.fromisoformat(latest) - timedelta(days=days)
+            items = [it for it in items if datetime.fromisoformat(it["filed_at"]) >= cutoff]
+
+    if category and category in _CATEGORY_KEYWORDS:
+        ids = [it["complaint_id"] for it in items]
+        rows = db.execute(select(Complaint.id, Complaint.narrative_text).where(Complaint.id.in_(ids))).all()
+        keyword = _CATEGORY_KEYWORDS[category]
+        matching_ids = {cid for cid, text in rows if keyword in text}
+        items = [it for it in items if it["complaint_id"] in matching_ids]
+
+    points = [
+        {"lat": it["top_prediction"]["lat"], "lon": it["top_prediction"]["lon"], "weight": it["top_prediction"]["confidence"]}
+        for it in items
+    ]
+    return {"points": points, "n_cases": len(points), "categories": _CATEGORY_LABELS}

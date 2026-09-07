@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import { ErrorState, LoadingSpinner } from "../components/StateViews";
+
+function relativeTime(iso) {
+  if (!iso) return "Never (this session)";
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return "Just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return `${Math.floor(seconds / 3600)}h ago`;
+}
 
 function Row({ label, value }) {
   return (
@@ -55,6 +63,33 @@ export default function Settings() {
     }
   };
 
+  // Real automated retraining (core/retrain_manager.py) -- fires on its
+  // own once enough investigator decisions accumulate (see the sidebar's
+  // "labels logged for retraining" counter), but a live demo shouldn't
+  // have to wait for that organically, so "Retrain Now" runs the exact
+  // same real training pipeline on demand. Polled every 2s only while a
+  // retrain is actually running (real one is a ~3s refit against cached
+  // features -- see ml/train.py -- so a few polls is enough to see it land).
+  const { data: retrain, reload: reloadRetrain } = useApi((signal) => api.retrainStatus(signal), []);
+  const [retraining, setRetraining] = useState(false);
+  useEffect(() => {
+    if (!retrain?.in_progress) return undefined;
+    const id = setInterval(reloadRetrain, 2000);
+    return () => clearInterval(id);
+  }, [retrain?.in_progress, reloadRetrain]);
+  const handleRetrainNow = async () => {
+    setRetraining(true);
+    try {
+      await api.triggerRetrain();
+      reloadRetrain();
+    } catch {
+      // 409 = one's already running -- reload will show the real state either way
+      reloadRetrain();
+    } finally {
+      setRetraining(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-8 py-8">
       <div className="mb-6">
@@ -97,6 +132,50 @@ export default function Settings() {
             onChange={handleInjectToggle}
             disabled={injectData === null || injectSaving}
           />
+        </div>
+      </div>
+
+      <div className="mb-6 card p-5">
+        <h3 className="mb-1 text-sm font-semibold text-ink-primary">Automated Model Retraining</h3>
+        <p className="mb-3 text-xs text-ink-muted">
+          Every real Approve/Reject decision logs an investigator training label. Once{" "}
+          {retrain?.threshold ?? 5} new labels accumulate since the last retrain, the full training pipeline
+          re-runs automatically and the freshly-fit model is hot-swapped in — no restart needed.
+        </p>
+        <div className="space-y-3 border-t border-surface-border pt-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-ink-muted">Status</span>
+            <span
+              className={`id-tag flex items-center gap-1.5 text-sm font-medium ${
+                retrain?.in_progress ? "text-status-warning" : retrain?.last_error ? "text-status-critical" : "text-ink-primary"
+              }`}
+            >
+              {retrain?.in_progress && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-warning" />}
+              {retrain?.in_progress ? "Retraining…" : retrain?.last_error ? `Failed: ${retrain.last_error}` : "Idle"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-ink-muted">Last retrained</span>
+            <span className="id-tag text-sm font-medium text-ink-primary">{relativeTime(retrain?.last_retrained_at)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-ink-muted">Labels since last retrain</span>
+            <span className="id-tag text-sm font-medium text-ink-primary">
+              {retrain?.labels_since_last_retrain ?? 0} / {retrain?.threshold ?? 5}
+            </span>
+          </div>
+          <button
+            onClick={handleRetrainNow}
+            disabled={retraining || retrain?.in_progress}
+            className="btn-primary w-full rounded-md py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {retrain?.in_progress ? "Retraining…" : "Retrain Now"}
+          </button>
+          <p className="text-[11px] text-ink-muted">
+            Real training run against the current dataset (same pipeline as ml/train.py) — not a simulated
+            progress bar. Retraining refits on the generator's own ground truth; investigator labels are the
+            real trigger, not (yet) a training target — see api/feedback.py.
+          </p>
         </div>
       </div>
 

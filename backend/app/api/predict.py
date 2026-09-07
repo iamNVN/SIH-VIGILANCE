@@ -112,6 +112,14 @@ def predict(complaint_id: int, db: Session = Depends(get_db)):
             "name": row["name"],
             "lat": float(row["lat"]),
             "lon": float(row["lon"]),
+            # The cash-out point's OWN bank -- a real column already loaded
+            # on every candidate row (see graph_engine/features.py's
+            # Dataset). Almost never equal to the victim's own bank_name
+            # (top-level of this response): funds route through mule
+            # accounts at a DIFFERENT bank before withdrawal, so the freeze
+            # action usually needs a SECOND bank notified, not the one that
+            # took the complaint. See NotificationDispatchModal.jsx.
+            "bank_name": row["bank_name"],
             "confidence": round(confidence, 4),
             "estimated_window": {
                 "earliest": complaint.filed_at.isoformat(),

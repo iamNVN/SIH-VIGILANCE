@@ -1,4 +1,4 @@
-import { ArrowRight, Hash, IndianRupee, Landmark, Tag } from "lucide-react";
+import { ArrowRight, Calendar, Hash, IndianRupee, Landmark, MapPin, Tag, User } from "lucide-react";
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { AccordionItem } from "../../components/Accordion";
@@ -53,7 +53,7 @@ function whyLinkedReasons(r) {
 }
 
 function highlightNarrative(text, entities) {
-  const needles = [entities.bank_name, entities.ifsc_code].filter(Boolean);
+  const needles = [entities.bank_name, entities.ifsc_code, entities.utr, entities.beneficiary, entities.location].filter(Boolean);
   if (needles.length === 0) return text;
 
   const pattern = new RegExp(`(${needles.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "g");
@@ -164,6 +164,23 @@ export default function Overview() {
           </EntityRow>
           <EntityRow icon={IndianRupee} label="Amount Mentioned">
             <span className="id-tag">{entities.amount ? `₹${entities.amount.toLocaleString("en-IN")}` : "Not detected"}</span>
+          </EntityRow>
+          {/* Real regex patterns (nlp/entity_extraction.py), not stubs --
+              they correctly return null on every complaint in this demo
+              because the synthetic generator's own narrative templates
+              never mention a UTR, beneficiary name, in-text location, or
+              timestamp -- not because the extractor can't find them. */}
+          <EntityRow icon={Hash} label="UTR / Transaction Reference">
+            <span className="id-tag text-status-warning">{entities.utr || "Not detected"}</span>
+          </EntityRow>
+          <EntityRow icon={User} label="Beneficiary">
+            {entities.beneficiary || "Not detected"}
+          </EntityRow>
+          <EntityRow icon={MapPin} label="Location Mentioned">
+            {entities.location || "Not detected"}
+          </EntityRow>
+          <EntityRow icon={Calendar} label="Timestamp Mentioned">
+            {entities.timestamp || "Not detected"}
           </EntityRow>
           <EntityRow icon={() => <span className="mt-0.5 flex h-4 w-4 items-center justify-center"><span className="h-2 w-2 rounded-full bg-series-1" /></span>} label="Status">
             <span className="inline-flex items-center rounded-sm bg-series-1/15 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-series-1">

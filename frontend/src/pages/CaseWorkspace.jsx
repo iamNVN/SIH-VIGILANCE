@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import CashOutMap from "../components/CashOutMap";
+import NotificationDispatchModal from "../components/NotificationDispatchModal";
 import SectionHeader from "../components/SectionHeader";
 import { ErrorState, LoadingSpinner } from "../components/StateViews";
 import usePageTitle from "../hooks/usePageTitle";
@@ -79,6 +80,8 @@ export default function CaseWorkspace() {
   const [localDecision, setLocalDecision] = useState(null);
   const [nextStep, setNextStep] = useState(null);
   const [deciding, setDeciding] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [feedbackLogged, setFeedbackLogged] = useState(false);
   const decision =
     localDecision || (complaint?.status === "action_approved" ? "approved" : complaint?.status === "action_rejected" ? "rejected" : null);
 
@@ -88,6 +91,17 @@ export default function CaseWorkspace() {
       const result = await api.decideComplaint(id, choice);
       setLocalDecision(choice);
       setNextStep(result.next_step);
+      setFeedbackLogged(result.feedback_logged);
+      // Live-updates Layout.jsx's sidebar label count (it fetches once on
+      // mount, and Layout doesn't remount per route) -- both Approve and
+      // Reject log a label (see complaints.py's apply_decision), unlike
+      // the notification modal below which only fires on Approve.
+      if (result.feedback_logged) window.dispatchEvent(new Event("predictrace:feedback-logged"));
+      // Approving is the one decision with real parties to act on it --
+      // rejecting closes the case out with nothing further to notify
+      // anyone about (see complaints.py's own _NEXT_STEP text for the same
+      // distinction).
+      if (choice === "approved") setShowNotifications(true);
     } catch (e) {
       setNextStep(`Couldn't record this decision: ${e.message}`);
     } finally {
@@ -237,6 +251,27 @@ export default function CaseWorkspace() {
                         {nextStep}
                       </motion.p>
                     )}
+                    {/* Visible on BOTH approve and reject (unlike the
+                        notification modal, which only fires on approve) --
+                        this is the one place a rejection shows anything at
+                        all, and it's the direct answer to "where did my
+                        decision go" for the feedback loop (see
+                        complaints.py's apply_decision + api/feedback.py).
+                        Gated on the backend's own feedback_logged flag, not
+                        assumed -- a complaint outside the cached feed
+                        (already closed, never revealed) genuinely has
+                        nothing to label. */}
+                    {decision && feedbackLogged && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15 }}
+                        className="mt-2 flex items-center gap-1.5 text-[11px] text-status-good"
+                      >
+                        <FontAwesomeIcon icon={faCheck} className="h-2.5 w-2.5" />
+                        Logged as an investigator training label — used the next time the model is retrained.
+                      </motion.p>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -323,6 +358,13 @@ export default function CaseWorkspace() {
           </div>
         </>
       )}
+
+      <NotificationDispatchModal
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        complaint={complaint}
+        topPrediction={top}
+      />
     </div>
   );
 }

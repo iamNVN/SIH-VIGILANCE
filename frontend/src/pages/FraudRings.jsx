@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useApi } from "../api/useApi";
@@ -41,6 +42,16 @@ function sizeTier(size) {
   return TIERS.small;
 }
 
+// Ring velocity (rings.py's `velocity_tier`) -- how many of a ring's own
+// linked complaints were filed in the most recent 7 days of its own
+// timeline. "Stable" deliberately gets no badge here (the common case,
+// not worth a pill on every card); only a ring that's actively adding
+// complaints right now earns one.
+const VELOCITY = {
+  surging: { label: "Surging", badge: "bg-status-critical/15 text-status-critical" },
+  active: { label: "Active growth", badge: "bg-status-warning/15 text-status-warning" },
+};
+
 function relativeTime(iso) {
   if (!iso) return "no recent activity";
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -68,6 +79,16 @@ function RingCard({ ring, index }) {
         </span>
         <span className="id-tag text-[10px] text-ink-muted">ring #{ring.community_id}</span>
       </div>
+
+      {VELOCITY[ring.velocity_tier] && (
+        <div className="mb-3">
+          <span
+            className={`id-tag inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${VELOCITY[ring.velocity_tier].badge}`}
+          >
+            <Zap className="h-2.5 w-2.5" strokeWidth={2.5} /> {VELOCITY[ring.velocity_tier].label} · {ring.recent_complaints_7d} new in 7d
+          </span>
+        </div>
+      )}
 
       {/* "At risk" gets its own full-width row, not a 1/3 share of the
           card next to Accounts/Complaints -- a large ring's amount (e.g.

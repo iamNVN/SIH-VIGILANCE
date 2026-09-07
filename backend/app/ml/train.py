@@ -21,29 +21,30 @@ from ml import advanced_model, baseline_model, calibration
 from ml.pipeline import ARTIFACTS_DIR, Dataset, load_or_build_features, temporal_split
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", default="../../data/output")
-    parser.add_argument("--rebuild", action="store_true")
-    parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
-
-    print("Loading dataset...")
-    ds = Dataset.from_csv_dir(args.data_dir)
+def train_and_save(data_dir: str = "../../data/output", seed: int = 42, rebuild: bool = False, log=print) -> dict:
+    """The actual training run -- fit both models, calibrate, write joblib
+    artifacts + metadata.json. Pulled out of main() so core/retrain_manager.py
+    can call this exact same code from a background thread, not a
+    reimplementation that could silently drift from the CLI path. `log`
+    defaults to `print` (CLI behavior) but the retrain manager passes a
+    logger instead, since a background thread's stdout isn't visible
+    anywhere useful."""
+    log("Loading dataset...")
+    ds = Dataset.from_csv_dir(data_dir)
     train_complaints, test_complaints = temporal_split(ds)
-    print(f"Train complaints: {len(train_complaints)}, test complaints: {len(test_complaints)}")
+    log(f"Train complaints: {len(train_complaints)}, test complaints: {len(test_complaints)}")
 
-    print("Building/loading TRAIN features...")
-    df_train = load_or_build_features(ds, train_complaints, "features_train", rebuild=args.rebuild)
+    log("Building/loading TRAIN features...")
+    df_train = load_or_build_features(ds, train_complaints, "features_train", rebuild=rebuild)
 
-    print("Fitting + calibrating baseline (Random Forest, tabular-only)...")
+    log("Fitting + calibrating baseline (Random Forest, tabular-only)...")
     baseline_raw, baseline_calibrated = calibration.fit_and_calibrate(
-        baseline_model.fit, df_train, baseline_model.FEATURE_COLUMNS, seed=args.seed
+        baseline_model.fit, df_train, baseline_model.FEATURE_COLUMNS, seed=seed
     )
 
-    print("Fitting + calibrating advanced (XGBoost, fused graph+temporal+geo features)...")
+    log("Fitting + calibrating advanced (XGBoost, fused graph+temporal+geo features)...")
     advanced_raw, advanced_calibrated = calibration.fit_and_calibrate(
-        advanced_model.fit, df_train, advanced_model.FEATURE_COLUMNS, seed=args.seed
+        advanced_model.fit, df_train, advanced_model.FEATURE_COLUMNS, seed=seed
     )
 
     joblib.dump(baseline_raw, ARTIFACTS_DIR / "baseline_raw.joblib")
@@ -58,12 +59,23 @@ def main():
         "advanced_features": advanced_model.FEATURE_COLUMNS,
         "n_train_complaints": int(len(train_complaints)),
         "n_test_complaints": int(len(test_complaints)),
-        "seed": args.seed,
+        "seed": seed,
     }
     with open(ARTIFACTS_DIR / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"Artifacts saved to {ARTIFACTS_DIR}")
+    log(f"Artifacts saved to {ARTIFACTS_DIR}")
+    return metadata
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", default="../../data/output")
+    parser.add_argument("--rebuild", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    train_and_save(data_dir=args.data_dir, seed=args.seed, rebuild=args.rebuild)
 
 
 if __name__ == "__main__":

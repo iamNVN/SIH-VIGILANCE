@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api import brief, complaints, evaluation, events, explain, feed, graph, predict, rings, settings, stats, stream
+from api import brief, complaints, evaluation, events, explain, feed, feedback, graph, predict, rings, settings, stats, stream
 from api.feed import _cached_feed
 from api.rings import _cached_rings, log_initial_ring_detections
 from core import replay_state
@@ -108,5 +108,6 @@ app.include_router(stats.router)
 app.include_router(stream.router)
 app.include_router(rings.router)
 app.include_router(feed.router)
+app.include_router(feedback.router)
 app.include_router(events.router)
 app.include_router(settings.router)

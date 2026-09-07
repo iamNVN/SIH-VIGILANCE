@@ -23,6 +23,10 @@ class ExtractedEntities(BaseModel):
     bank_name: Optional[str] = None
     ifsc_code: Optional[str] = None
     amount: Optional[float] = None
+    utr: Optional[str] = None
+    beneficiary: Optional[str] = None
+    location: Optional[str] = None
+    timestamp: Optional[str] = None
 
 
 class ComplaintOut(BaseModel):
@@ -54,3 +58,10 @@ class DecisionCreate(BaseModel):
 class DecisionOut(BaseModel):
     status: str
     next_step: str
+    # True only when a real Prediction+InvestigatorFeedback row was
+    # actually persisted for this decision (see complaints.py's
+    # apply_decision) -- False, honestly, when this complaint wasn't in
+    # the cached feed (e.g. already closed, or never revealed) and so
+    # there was no top-prediction snapshot to label. The frontend's
+    # "logged as a training label" line is gated on this, not assumed.
+    feedback_logged: bool

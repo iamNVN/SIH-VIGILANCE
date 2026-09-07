@@ -28,6 +28,14 @@ function sizeTier(size) {
   return { label: "Small ring", badge: "bg-series-1/15 text-series-1", text: "text-series-1" };
 }
 
+// Same velocity tiers as FraudRings.jsx's card badge -- see rings.py's
+// `velocity_tier` for how it's derived from the ring's own complaint
+// timeline.
+const VELOCITY = {
+  surging: { label: "Surging", badge: "bg-status-critical/15 text-status-critical" },
+  active: { label: "Active growth", badge: "bg-status-warning/15 text-status-warning" },
+};
+
 function StatCard({ label, value, sub }) {
   return (
     <div className="card p-4">
@@ -74,6 +82,13 @@ export default function RingDetail() {
                         <span className={`id-tag inline-block rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tier.badge}`}>
                           {tier.label}
                         </span>
+                        {VELOCITY[ring.velocity_tier] && (
+                          <span
+                            className={`id-tag ml-1.5 inline-flex items-center rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${VELOCITY[ring.velocity_tier].badge}`}
+                          >
+                            {VELOCITY[ring.velocity_tier].label}
+                          </span>
+                        )}
                         <h1 className="mt-1.5 text-2xl font-semibold text-ink-primary">Ring R-{ring.community_id}</h1>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
                           <span className="flex items-center gap-1.5">
@@ -97,7 +112,11 @@ export default function RingDetail() {
 
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <StatCard label="Accounts" value={ring.size} />
-                  <StatCard label="Linked Complaints" value={ring.num_complaints} />
+                  <StatCard
+                    label="Linked Complaints"
+                    value={ring.num_complaints}
+                    sub={ring.recent_complaints_7d > 0 ? `${ring.recent_complaints_7d} in last 7d` : undefined}
+                  />
                   <StatCard label="Cities Touched" value={ring.cities_touched?.length ?? 0} />
                   <StatCard label="Last Activity" value={fmtDate(ring.last_activity)} />
                 </div>

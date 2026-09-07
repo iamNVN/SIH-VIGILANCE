@@ -80,9 +80,11 @@ def _score_complaint(ds, complaint) -> Optional[dict]:
         "amount_lost": complaint.amount_lost,
         "filed_at": complaint.filed_at.isoformat(),
         "top_prediction": {
+            "withdrawal_point_id": int(top["withdrawal_point_id"]),
             "name": top["name"],
             "lat": float(top["lat"]),
             "lon": float(top["lon"]),
+            "bank_name": top["bank_name"],
             "confidence": round(confidence, 4),
             "n_candidates": n_candidates,
             "urgency": lift_urgency(confidence, n_candidates),

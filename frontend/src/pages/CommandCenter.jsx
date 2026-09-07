@@ -47,6 +47,7 @@ const EVENT_COLOR = {
   ring_linked: "#9085e9", // series-7
   prediction_generated: "#199e70", // series-3
   ring_detected: "#c98500", // series-4
+  model_retrained: "#d55181", // series-5 -- a model-level event, not a per-case one, so it deliberately reads as a different kind of dot
 };
 
 function eventColor(event) {

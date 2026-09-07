@@ -20,6 +20,7 @@ import time
 from collections import Counter
 from typing import Optional
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -88,6 +89,26 @@ def _compute_rings():
             we_max = we["timestamp"].max()
             last_activity = we_max if last_activity is None else max(last_activity, we_max)
 
+        # Ring velocity -- how many of THIS ring's own linked complaints
+        # were filed in the most recent 7-day window of its own timeline
+        # (anchored to the ring's own latest complaint, not real wall-clock
+        # "today" -- the dataset's dates are fictional, same reasoning as
+        # stats.py's get_timeseries/get_heatmap). A ring that just added
+        # several complaints in a short span is actively cashing out RIGHT
+        # NOW and deserves takedown priority over a larger but dormant one
+        # -- a real signal from real per-complaint filed_at timestamps, not
+        # a synthetic "trending" score.
+        last_filed_at = linked["filed_at"].max()
+        recent_cutoff = last_filed_at - pd.Timedelta(days=7)
+        recent_complaints_7d = int((linked["filed_at"] >= recent_cutoff).sum())
+        recent_share = recent_complaints_7d / len(complaint_ids) if complaint_ids else 0.0
+        if recent_complaints_7d >= 3 and recent_share >= 0.4:
+            velocity_tier = "surging"
+        elif recent_complaints_7d >= 1:
+            velocity_tier = "active"
+        else:
+            velocity_tier = "stable"
+
         rings.append({
             "community_id": int(community_id),
             "size": size,
@@ -105,6 +126,9 @@ def _compute_rings():
             # filed (not when the graph happened to be recomputed).
             "complaint_ids": complaint_ids,
             "first_filed_at": linked["filed_at"].min().isoformat(),
+            "last_filed_at": last_filed_at.isoformat(),
+            "recent_complaints_7d": recent_complaints_7d,
+            "velocity_tier": velocity_tier,
         })
         for cid in complaint_ids:
             complaint_to_ring[cid] = int(community_id)

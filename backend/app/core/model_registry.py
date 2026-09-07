@@ -46,5 +46,13 @@ class ModelRegistry:
     def ready(self) -> bool:
         return self.advanced_calibrated is not None and self.baseline_calibrated is not None
 
+    def reload(self):
+        """Re-reads the joblib artifacts from disk -- called by
+        core/retrain_manager.py right after a background retrain finishes,
+        so a freshly-trained model serves the very next /predict call
+        without a backend restart. Same loader `__init__` already uses, so
+        a hot-swap and a cold start can never load artifacts differently."""
+        self._load()
+
 
 registry = ModelRegistry(MODEL_ARTIFACTS_DIR)

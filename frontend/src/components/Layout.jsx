@@ -15,8 +15,10 @@ import {
   Share2,
   Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
+import { useApi } from "../api/useApi";
 import { useAuth } from "../auth/AuthContext";
 import usePageTitle from "../hooks/usePageTitle";
 
@@ -33,7 +35,7 @@ const NAV_ITEMS = [
   { to: "/rings", label: "Fraud Rings", icon: Share2, roles: ["investigator", "administrator"] },
   // { to: "/predictions", label: "Predictions", icon: Target, roles: ["investigator", "administrator"] },
   // { to: "/alerts", label: "Alerts", icon: Bell, roles: ["investigator", "administrator"] },
-  { to: "/maps", label: "Maps", icon: MapPin, roles: ["investigator", "administrator"] },
+  { to: "/maps", label: "Risk Heatmap", icon: MapPin, roles: ["investigator", "administrator"] },
   { to: "/audit-trail", label: "Audit Trail", icon: ClipboardList, roles: ["investigator", "administrator"] },
   { to: "/analytics", label: "Reports", icon: FileText, roles: ["administrator"] },
   { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["investigator", "administrator"] },
@@ -65,6 +67,24 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   usePageTitle(pageTitleFor(location.pathname));
+
+  // Active-learning feedback loop (Blueprint Section 15/23) -- surfaced
+  // globally (Layout mounts once for the whole app), not tucked into one
+  // page, since every real Approve/Reject anywhere logs a label here (see
+  // complaints.py's apply_decision). Deliberately worded "logged for
+  // retraining," not "retrained" -- ml/train.py doesn't consume this
+  // automatically yet (see api/feedback.py's docstring).
+  const { data: feedback, reload: reloadFeedback } = useApi((signal) => api.feedbackSummary(signal), []);
+
+  // useApi fetches once on mount (Layout doesn't remount per route -- only
+  // Outlet's content does), so a decision made on a case page would never
+  // otherwise be reflected here until a full reload. CaseWorkspace.jsx
+  // dispatches this event right after a real Approve/Reject persists a
+  // feedback label, so the sidebar count updates live in the same session.
+  useEffect(() => {
+    window.addEventListener("predictrace:feedback-logged", reloadFeedback);
+    return () => window.removeEventListener("predictrace:feedback-logged", reloadFeedback);
+  }, [reloadFeedback]);
 
   const handleLogout = () => {
     logout();
@@ -146,6 +166,11 @@ export default function Layout() {
                     <span className="text-xs font-semibold text-status-good">System Online</span>
                   </div>
                   <p className="mt-0.5 pl-4 text-[11px] text-ink-muted">All systems operational</p>
+                  {feedback?.total_labels > 0 && (
+                    <p className="mt-1 pl-4 text-[10px] text-ink-muted">
+                      {feedback.total_labels} investigator label{feedback.total_labels === 1 ? "" : "s"} logged for retraining
+                    </p>
+                  )}
                 </div>
                 <BarChart3 className="h-4 w-4 shrink-0 text-status-good/60" strokeWidth={2} />
               </div>

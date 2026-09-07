@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session, joinedload
 from api.schemas import ComplaintCreate, ComplaintOut, DecisionCreate, DecisionOut
 from core import dataset_provider
 from core.db import get_db
-from models import Complaint, Victim
+from core.model_registry import registry
+from models import Complaint, InvestigatorFeedback, Prediction, Victim
 from nlp.entity_extraction import extract_entities
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
@@ -180,6 +181,38 @@ def apply_decision(db: Session, complaint: Complaint, decision: str) -> Decision
     match = next((it for it in items if it["complaint_id"] == complaint.id), None)
     detail = match["top_prediction"]["name"] if match else complaint.bank_name
 
+    # Active-learning feedback loop (Blueprint Section 15/23) -- the
+    # `investigator_feedback` table existed but nothing ever wrote to it
+    # (models/orm.py's own docstring: "table exists now so the feedback
+    # loop has somewhere to write to later"). This is that write: every
+    # real Approve/Reject snapshots the top prediction being acted on into
+    # `predictions` (that table was similarly defined but never populated),
+    # then labels it `correct_bool = approved`. "Approved" means the
+    # investigator judged this top prediction worth acting on; "rejected"
+    # means they didn't -- an honest proxy for ground truth (the actual
+    # cash-out location is never known to this demo), not a claim of
+    # verified accuracy. Committed immediately below (not batched with the
+    # status-change commit further down) so retrain_manager's own DB
+    # session -- opened fresh, per core/retrain_manager.py's docstring --
+    # actually sees this row when it counts labels a few lines later.
+    if match:
+        tp = match["top_prediction"]
+        prediction = Prediction(
+            complaint_id=complaint.id,
+            withdrawal_point_id=tp["withdrawal_point_id"],
+            rank=1,
+            confidence=tp["confidence"],
+            model_version=registry.metadata.get("advanced_model_version", "unknown"),
+        )
+        db.add(prediction)
+        db.flush()
+        db.add(InvestigatorFeedback(prediction_id=prediction.id, correct_bool=(decision == "approved")))
+        db.commit()
+
+        from core import retrain_manager
+
+        retrain_manager.maybe_trigger_retrain()
+
     was_open = complaint.status == "open"
     complaint.status = f"action_{decision}"
     db.commit()
@@ -204,7 +237,11 @@ def apply_decision(db: Session, complaint: Complaint, decision: str) -> Decision
         complaint.victim.city if complaint.victim else None,
     )
 
-    return DecisionOut(status=complaint.status, next_step=_NEXT_STEP[decision].format(bank=complaint.bank_name))
+    return DecisionOut(
+        status=complaint.status,
+        next_step=_NEXT_STEP[decision].format(bank=complaint.bank_name),
+        feedback_logged=bool(match),
+    )
 
 
 @router.post("/{complaint_id}/decision", response_model=DecisionOut)
