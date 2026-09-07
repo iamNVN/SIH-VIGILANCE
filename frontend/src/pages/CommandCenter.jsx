@@ -688,7 +688,7 @@ export default function CommandCenter() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: idx * 0.05, ease: "easeOut" }}
                         whileHover={{ backgroundColor: "rgba(255,255,255,0.05)", x: 2 }}
-                        onClick={() => navigate(`/cases/${r.sample_complaint_id}`)}
+                        onClick={() => navigate(`/rings/${r.community_id}`)}
                         className="cursor-pointer border-b border-white/5 last:border-0"
                       >
                         <td className="id-tag px-5 py-2.5 text-ink-muted">R-{r.community_id}</td>

@@ -59,7 +59,7 @@ function RingCard({ ring, index }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.4), duration: 0.25 }}
       whileHover={{ y: -3 }}
-      onClick={() => navigate(`/cases/${ring.sample_complaint_id}`)}
+      onClick={() => navigate(`/rings/${ring.community_id}`)}
       className={`card border-l-2 p-4 text-left transition hover:bg-white/5 ${tier.border}`}
     >
       <div className="mb-3 flex items-center justify-between">
@@ -69,7 +69,13 @@ function RingCard({ ring, index }) {
         <span className="id-tag text-[10px] text-ink-muted">ring #{ring.community_id}</span>
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      {/* "At risk" gets its own full-width row, not a 1/3 share of the
+          card next to Accounts/Complaints -- a large ring's amount (e.g.
+          ₹1,07,03,762) is a much longer string than a 2-3 digit count and
+          was overflowing past its column into the card's edge at this
+          card's width. A row of its own scales to any amount, not just
+          today's data. */}
+      <div className="mb-3 grid grid-cols-2 gap-2">
         <div>
           <p className="id-tag text-2xl font-semibold text-ink-primary">
             <AnimatedNumber value={ring.size} />
@@ -82,10 +88,12 @@ function RingCard({ ring, index }) {
           </p>
           <p className="text-[10px] uppercase tracking-wide text-ink-muted">Complaints</p>
         </div>
-        <div>
-          <p className={`id-tag text-lg font-semibold ${tier.text}`}>{money(ring.total_amount_at_risk)}</p>
-          <p className="text-[10px] uppercase tracking-wide text-ink-muted">At risk</p>
-        </div>
+      </div>
+      <div className="mb-3">
+        <p className={`id-tag truncate text-lg font-semibold ${tier.text}`} title={money(ring.total_amount_at_risk)}>
+          {money(ring.total_amount_at_risk)}
+        </p>
+        <p className="text-[10px] uppercase tracking-wide text-ink-muted">At risk</p>
       </div>
 
       <div className="flex items-center justify-between border-t border-surface-border pt-2 text-xs text-ink-muted">

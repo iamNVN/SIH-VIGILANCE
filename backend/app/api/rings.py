@@ -20,11 +20,14 @@ import time
 from collections import Counter
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session, joinedload
 
 from core import dataset_provider
+from core.db import get_db
 from graph_engine.build_graph import build_graph
 from graph_engine.community import community_sizes, detect_communities
+from models import Complaint
 
 router = APIRouter(tags=["rings"])
 
@@ -95,6 +98,13 @@ def _compute_rings():
             "top_bank": top_bank,
             "last_activity": last_activity.isoformat() if last_activity is not None else None,
             "sample_complaint_id": complaint_ids[0],
+            # Full id list + earliest filed date -- cheap here (already
+            # have `linked` in memory from the total_amount sum above), and
+            # is what the ring detail page needs: every linked case, and
+            # when the first one that ties into this ring was actually
+            # filed (not when the graph happened to be recomputed).
+            "complaint_ids": complaint_ids,
+            "first_filed_at": linked["filed_at"].min().isoformat(),
         })
         for cid in complaint_ids:
             complaint_to_ring[cid] = int(community_id)
@@ -162,9 +172,24 @@ def list_rings(limit: int = 50, city: Optional[str] = None):
 
 
 @router.get("/rings/{community_id}")
-def get_ring(community_id: int):
+def get_ring(community_id: int, db: Session = Depends(get_db)):
     rings = _cached_rings()
-    for r in rings:
-        if r["community_id"] == community_id:
-            return r
-    raise HTTPException(404, f"ring {community_id} not found (it may be below the 3-account threshold)")
+    ring = next((r for r in rings if r["community_id"] == community_id), None)
+    if ring is None:
+        raise HTTPException(404, f"ring {community_id} not found (it may be below the 3-account threshold)")
+
+    # Real complaint rows for every id this ring touches -- only fetched
+    # here (not in _compute_rings(), which runs for every ring on every
+    # cache refresh whether or not anyone's looking at it) since this is
+    # the one place that actually needs full victim/bank/status detail per
+    # case, not just the id.
+    from .complaints import _to_out
+
+    rows = (
+        db.query(Complaint)
+        .options(joinedload(Complaint.victim))
+        .filter(Complaint.id.in_(ring["complaint_ids"]))
+        .order_by(Complaint.filed_at.asc())
+        .all()
+    )
+    return {**ring, "linked_complaints": [_to_out(c) for c in rows]}

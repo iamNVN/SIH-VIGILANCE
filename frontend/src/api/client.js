@@ -52,6 +52,7 @@ export const api = {
   brief: (id, signal) => request(`/brief/${id}`, { signal }),
   evaluation: (signal) => request("/evaluation", { signal }),
   rings: (limit = 50, city, signal) => request(`/rings${qs({ limit, city })}`, { signal }),
+  ringDetail: (communityId, signal) => request(`/rings/${communityId}`, { signal }),
   predictionsFeed: (limit = 40, city, signal) => request(`/feed/predictions${qs({ limit, city })}`, { signal }),
   alertsFeed: (limit = 40, city, signal, sort) => request(`/feed/alerts${qs({ limit, city, sort })}`, { signal }),
   events: (city, limit = 20, signal, eventType) => request(`/events${qs({ city, limit, event_type: eventType })}`, { signal }),

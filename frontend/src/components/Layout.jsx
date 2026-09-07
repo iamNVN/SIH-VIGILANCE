@@ -47,6 +47,7 @@ function pageTitleFor(pathname) {
   const exact = NAV_ITEMS.find((item) => item.to === pathname);
   if (exact) return exact.label;
   if (pathname.startsWith("/cases/")) return "Cases";
+  if (pathname.startsWith("/rings/")) return "Fraud Rings";
   return null;
 }
 

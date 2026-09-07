@@ -16,6 +16,7 @@ import FraudRings from "./pages/FraudRings";
 import Login from "./pages/Login";
 import Maps from "./pages/Maps";
 import Predictions from "./pages/Predictions";
+import RingDetail from "./pages/RingDetail";
 import Settings from "./pages/Settings";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/" element={<CommandCenter />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/rings" element={<FraudRings />} />
+            <Route path="/rings/:communityId" element={<RingDetail />} />
             <Route path="/predictions" element={<Predictions />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/maps" element={<Maps />} />
