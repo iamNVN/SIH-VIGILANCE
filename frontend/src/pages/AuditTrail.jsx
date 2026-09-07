@@ -42,7 +42,7 @@ export default function AuditTrail() {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold text-ink-primary">Audit Trail</h1>
-          <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
+          <span className="id-tag accent-series-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">
             {city ? `${city} only` : "All India"}
           </span>
         </div>
@@ -68,8 +68,8 @@ export default function AuditTrail() {
 
       <div className="card">
         <div className="card-header flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-series-1/15">
-            <ClipboardList className="h-4 w-4 text-series-1" strokeWidth={2} />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md accent-series-1">
+            <ClipboardList className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
           <h2 className="text-sm font-semibold text-ink-primary">Decision Log</h2>
         </div>

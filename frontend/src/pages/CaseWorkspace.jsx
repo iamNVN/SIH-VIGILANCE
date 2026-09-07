@@ -109,11 +109,11 @@ export default function CaseWorkspace() {
           <div className="card mb-5 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-series-1">
-                  <Folder className="h-6 w-6 text-white" strokeWidth={2} />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-series-1/50 bg-gradient-to-br from-series-1/55 via-series-1/30 to-series-1/10 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.3),inset_0_1px_0_rgba(255,255,255,0.15)]">
+                  <Folder className="h-6 w-6 text-white drop-shadow-[0_0_6px_rgba(96,165,250,0.7)]" strokeWidth={2} />
                 </div>
                 <div>
-                  <p className="id-tag text-xs font-semibold uppercase tracking-wide text-series-1">Case #{caseCode(complaint.id)}</p>
+                  <p className="id-tag text-xs font-semibold uppercase tracking-wide text-series-1 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]">Case #{caseCode(complaint.id)}</p>
                   <h1 className="text-2xl font-semibold text-ink-primary">{complaint.victim_name}</h1>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
                     <span className="flex items-center gap-1.5">

@@ -28,10 +28,77 @@ body {
   @apply border-b border-surface-border px-5 py-3;
 }
 
+/* The one primary-action button treatment, app-wide -- same gradient,
+   border and glow as the sidebar's active nav item (Layout.jsx), so a
+   solid flat-blue button never sits next to that glassy look and reads as
+   a different, older design generation. Layout/size utilities (padding,
+   rounding, width) stay on each button's own className; this only owns
+   the fill/border/glow identity. */
+.btn-primary {
+  @apply border border-series-1/50 bg-gradient-to-br from-series-1/55 via-series-1/30 to-series-1/10 text-white transition-colors;
+  box-shadow: 0 4px 20px -4px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.btn-primary:hover:not(:disabled) {
+  @apply from-series-1/70 via-series-1/45 to-series-1/25;
+}
+
+/* Same gradient/border/glow identity as .btn-primary, for decorative
+   section/card-topic icon badges and brand-accent pills (e.g. the
+   "{city} only" jurisdiction badge) -- one class per color actually used
+   as an icon/badge tint, so a flat translucent square never sits next to
+   the new glowing surfaces looking like a leftover design generation.
+   Deliberately NOT applied to semantic status/urgency/risk badges
+   (HIGH/MEDIUM/LOW, approved/rejected, ring-size tiers) or to per-row
+   badges in dense lists -- those need to stay flat, fast-scan colors, not
+   a decorative glow, and a table of glowing pills is harder to scan, not
+   better. */
+.accent-series-1 {
+  @apply border border-series-1/50 bg-gradient-to-br from-series-1/55 via-series-1/30 to-series-1/10;
+  box-shadow: 0 4px 20px -4px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-series-2 {
+  @apply border border-series-2/50 bg-gradient-to-br from-series-2/55 via-series-2/30 to-series-2/10;
+  box-shadow: 0 4px 20px -4px rgba(217, 89, 38, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-series-3 {
+  @apply border border-series-3/50 bg-gradient-to-br from-series-3/55 via-series-3/30 to-series-3/10;
+  box-shadow: 0 4px 20px -4px rgba(25, 158, 112, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-series-6 {
+  @apply border border-series-6/50 bg-gradient-to-br from-series-6/55 via-series-6/30 to-series-6/10;
+  box-shadow: 0 4px 20px -4px rgba(0, 131, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-series-7 {
+  @apply border border-series-7/50 bg-gradient-to-br from-series-7/55 via-series-7/30 to-series-7/10;
+  box-shadow: 0 4px 20px -4px rgba(144, 133, 233, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-status-good {
+  @apply border border-status-good/50 bg-gradient-to-br from-status-good/55 via-status-good/30 to-status-good/10;
+  box-shadow: 0 4px 20px -4px rgba(12, 163, 12, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-status-warning {
+  @apply border border-status-warning/50 bg-gradient-to-br from-status-warning/55 via-status-warning/30 to-status-warning/10;
+  box-shadow: 0 4px 20px -4px rgba(250, 178, 25, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.accent-status-critical {
+  @apply border border-status-critical/50 bg-gradient-to-br from-status-critical/55 via-status-critical/30 to-status-critical/10;
+  box-shadow: 0 4px 20px -4px rgba(208, 59, 59, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
 /* Case/account identifiers, codes and figures read as records, not prose --
    monospace marks them as exact, copy-able data (a case-file convention). */
 .id-tag {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
+  padding-top: 3px;
+  border-radius: 4px;
 }
 
 /* `color-scheme: dark` on <html> only makes a <select>'s native dropdown
