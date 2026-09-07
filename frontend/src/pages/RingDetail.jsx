@@ -67,8 +67,8 @@ export default function RingDetail() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-series-7/50 bg-gradient-to-br from-series-7/55 via-series-7/30 to-series-7/10 shadow-[0_4px_20px_-4px_rgba(144,133,233,0.35),inset_0_1px_0_rgba(255,255,255,0.15)]">
-                        <Share2 className="h-6 w-6 text-white drop-shadow-[0_0_6px_rgba(144,133,233,0.7)]" strokeWidth={2} />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-series-7">
+                        <Share2 className="h-6 w-6 text-white" strokeWidth={2} />
                       </div>
                       <div>
                         <span className={`id-tag inline-block rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tier.badge}`}>

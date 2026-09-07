@@ -8,37 +8,40 @@ import { FileSearch, GitBranch, Network, ScanSearch, ShieldCheck, X } from "luci
 // able to answer "what am I actually looking at" for themselves.
 // Complete literal class strings, not `bg-${color}/15` interpolation --
 // Tailwind's JIT scanner can't see dynamically-built class names (same
-// reasoning as pages/CommandCenter.jsx's ringRiskTier). iconBg is one of
-// index.css's shared `.accent-series-*` classes (gradient + border + glow,
-// same identity as the sidebar's active nav item), not a flat tint.
+// reasoning as pages/CommandCenter.jsx's ringRiskTier).
 const STEPS = [
   {
     icon: FileSearch,
-    iconBg: "accent-series-1",
+    iconBg: "bg-series-1/15",
+    iconColor: "text-series-1",
     title: "A complaint arrives",
     body: "NLP entity extraction pulls the bank, account and narrative details out of the raw complaint text.",
   },
   {
     icon: GitBranch,
-    iconBg: "accent-series-7",
+    iconBg: "bg-series-7/15",
+    iconColor: "text-series-7",
     title: "Point-in-time transaction graph",
     body: "The fund-flow graph is rebuilt cut strictly at this complaint's own filed time — the model never sees money movement that hadn't happened yet.",
   },
   {
     icon: Network,
-    iconBg: "accent-series-2",
+    iconBg: "bg-series-2/15",
+    iconColor: "text-series-2",
     title: "Ring detection",
     body: "Louvain community detection over the mule-account graph surfaces the fraud ring this complaint belongs to, if any.",
   },
   {
     icon: ScanSearch,
-    iconBg: "accent-series-6",
+    iconBg: "bg-series-6/15",
+    iconColor: "text-series-6",
     title: "Ranked cash-out prediction",
     body: "Graph, temporal and geographic features feed a calibrated model that ranks every candidate withdrawal point — with SHAP explaining exactly why each one ranked where it did.",
   },
   {
     icon: ShieldCheck,
-    iconBg: "accent-series-3",
+    iconBg: "bg-series-3/15",
+    iconColor: "text-series-3",
     title: "Investigator sign-off",
     body: "Nothing is auto-executed. An investigator reviews the ranked shortlist and explanation, then approves or rejects — that decision is what's logged as real action.",
   },
@@ -90,7 +93,7 @@ export default function HowItWorksModal({ open, onClose }) {
                       <span className="absolute left-[19px] top-10 h-[calc(100%-2.25rem)] w-px bg-surface-border" />
                     )}
                     <div className={`z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${step.iconBg}`}>
-                      <Icon className="h-4.5 w-4.5 text-white" strokeWidth={2} />
+                      <Icon className={`h-4.5 w-4.5 ${step.iconColor}`} strokeWidth={2} />
                     </div>
                     <div className="min-w-0 pt-1.5">
                       <p className="text-sm font-semibold text-ink-primary">

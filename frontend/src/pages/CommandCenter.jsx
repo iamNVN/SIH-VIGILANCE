@@ -78,7 +78,7 @@ function ringRiskTier(size) {
   return { label: "LOW", badge: "bg-white/5 text-ink-muted" };
 }
 
-function StatCard({ icon: Icon, iconBg, label, value, format, delay, onClick }) {
+function StatCard({ icon: Icon, iconBg, iconColor, label, value, format, delay, onClick }) {
   // `value == null` means "still loading" (e.g. High Risk Cases waits on
   // the batch feed, not the fast DB stats) -- shown as a quiet pulse
   // instead of blocking the other cards, which have no such dependency.
@@ -109,7 +109,7 @@ function StatCard({ icon: Icon, iconBg, label, value, format, delay, onClick }) 
           transition={{ type: "spring", stiffness: 300, damping: 12 }}
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${iconBg}`}
         >
-          <Icon className="h-5 w-5 text-white" strokeWidth={2} />
+          <Icon className={`h-5 w-5 ${iconColor}`} strokeWidth={2} />
         </motion.div>
       </div>
     </motion.div>
@@ -246,7 +246,7 @@ export default function CommandCenter() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-semibold text-ink-primary">Command Center</h1>
-            <span className="id-tag accent-series-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+            <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
               {city ? `${city} only` : "All India"}
             </span>
           </div>
@@ -396,10 +396,10 @@ export default function CommandCenter() {
           immediately keeps the page's height stable from first paint; each
           card fills in independently as its own data resolves. */}
       <div className="mb-5 grid grid-cols-2 gap-5 lg:grid-cols-4">
-        <StatCard icon={FileText} iconBg="accent-series-1" label="Total Complaints" value={stats?.total_complaints} delay={0} />
-        <StatCard icon={Shield} iconBg="accent-status-critical" label="High Risk Cases" value={recentAlerts?.total ?? stats?.high_risk_cases} delay={0.03} />
-        <StatCard icon={Clock} iconBg="accent-series-7" label="Pending Action" value={stats?.open_complaints} delay={0.06} onClick={() => navigate("/cases?status=open&revealed=true")} />
-        <StatCard icon={IndianRupee} iconBg="accent-status-warning" label="Amount at Risk" value={stats?.total_amount_at_risk} format={money} delay={0.09} />
+        <StatCard icon={FileText} iconBg="bg-series-1/15" iconColor="text-series-1" label="Total Complaints" value={stats?.total_complaints} delay={0} />
+        <StatCard icon={Shield} iconBg="bg-status-critical/15" iconColor="text-status-critical" label="High Risk Cases" value={recentAlerts?.total ?? stats?.high_risk_cases} delay={0.03} />
+        <StatCard icon={Clock} iconBg="bg-series-7/15" iconColor="text-series-7" label="Pending Action" value={stats?.open_complaints} delay={0.06} onClick={() => navigate("/cases?status=open&revealed=true")} />
+        <StatCard icon={IndianRupee} iconBg="bg-status-warning/15" iconColor="text-status-warning" label="Amount at Risk" value={stats?.total_amount_at_risk} format={money} delay={0.09} />
       </div>
 
       {/* Middle section -- Predicted Cash-out Hotspots (map + ranked list
@@ -418,8 +418,8 @@ export default function CommandCenter() {
         >
           <div className="mb-1 flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md accent-series-1">
-                <MapPin className="h-4 w-4 text-white" strokeWidth={2} />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-series-1/15">
+                <MapPin className="h-4 w-4 text-series-1" strokeWidth={2} />
               </div>
               <h2 className="text-sm font-semibold text-ink-primary">Top Predicted Cash-out Hotspots</h2>
             </div>
@@ -517,8 +517,8 @@ export default function CommandCenter() {
         >
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md accent-status-good">
-                <Zap className="h-4 w-4 text-white" strokeWidth={2} />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-status-good/15">
+                <Zap className="h-4 w-4 text-status-good" strokeWidth={2} />
               </div>
               <h2 className="text-sm font-semibold text-ink-primary">Live Investigation Feed</h2>
             </div>

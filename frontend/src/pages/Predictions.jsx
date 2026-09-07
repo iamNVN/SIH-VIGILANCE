@@ -24,7 +24,7 @@ export default function Predictions() {
       <div className="mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-semibold text-ink-primary">Predictions</h1>
-          <span className="id-tag accent-series-1 rounded-sm px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white">
+          <span className="id-tag rounded-sm bg-series-1/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-series-1">
             {city ? `${city} only` : "All India"}
           </span>
         </div>
