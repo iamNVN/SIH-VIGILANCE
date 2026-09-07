@@ -36,7 +36,7 @@ body {
    the fill/border/glow identity. */
 .btn-primary {
   @apply border border-series-1/50 bg-gradient-to-br from-series-1/55 via-series-1/30 to-series-1/10 text-white transition-colors;
-  box-shadow: 0 4px 20px -4px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px -4px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover:not(:disabled) {

@@ -80,23 +80,17 @@ export default function Layout() {
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className="relative flex shrink-0 flex-col overflow-hidden border-r border-surface-border bg-surface-raised"
         >
-          <div className="relative flex items-center gap-3 border-b border-surface-border px-5 py-6">
-            {/* logo1.png bakes its own "VIGILANCE" wordmark in below the
-                icon mark -- cropped to just the icon here (real height set
-                larger than the frame, top-anchored) since the name/tagline
-                are already real text right next to it, not something to
-                duplicate tiny and unreadable inside the image. */}
-            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#0a0e1a]">
-              <img src="/logo1.png" alt="" className="absolute left-1/2 top-0 h-[160%] w-auto max-w-none -translate-x-1/2 -mt-1" />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 mt-2">
-                <p className="text-base font-semibold leading-none tracking-wide text-ink-primary">VIGILANCE</p>
-                <p className="mt-1.5 text-[9px] font-medium leading-normal tracking-[0.2em] text-ink-muted">
-                  PREDICTIVE CASH-OUT<br />INTELLIGENCE
-                </p>
-              </div>
-            )}
+          <div className="relative h-[112px] shrink-0 overflow-hidden border-b border-surface-border bg-[#0a0f1c]">
+            {/* navbar.mp4 already bakes in the full lockup (icon + wordmark
+                + tagline) as one animated horizontal asset -- replaces the
+                static icon+text pair entirely rather than sitting beside
+                it. object-fit:cover + left-anchored position keeps the
+                icon (near the video's left edge) always in frame; more of
+                the wordmark becomes visible as the sidebar itself widens,
+                same idea as logo1.png's crop but for a moving lockup. */}
+            <video autoPlay loop muted playsInline className="mt-[6px] absolute inset-x-1.5 h-full w-[95%] object-cover object-left">
+              <source src="/navbar.mp4" type="video/mp4" />
+            </video>
           </div>
 
           {/* <button
