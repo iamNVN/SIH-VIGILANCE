@@ -14,6 +14,7 @@ Run:
 
 import argparse
 import json
+from datetime import datetime, timezone
 
 import joblib
 
@@ -28,7 +29,25 @@ def train_and_save(data_dir: str = "../../data/output", seed: int = 42, rebuild:
     reimplementation that could silently drift from the CLI path. `log`
     defaults to `print` (CLI behavior) but the retrain manager passes a
     logger instead, since a background thread's stdout isn't visible
-    anywhere useful."""
+    anywhere useful.
+
+    `train_run` increments on every real training run (read from the
+    PREVIOUS metadata.json, if any, before overwriting it) -- MODEL_VERSION
+    in advanced_model.py/baseline_model.py names the pipeline/architecture
+    ("advanced-v1"), which doesn't change between retrains; appending the
+    run number gives each actual fit its own distinct, visibly-incrementing
+    version instead of the same static string whether the model has been
+    trained once or fifty times."""
+    prev_train_run = 0
+    meta_path = ARTIFACTS_DIR / "metadata.json"
+    if meta_path.exists():
+        try:
+            with open(meta_path) as f:
+                prev_train_run = json.load(f).get("train_run", 0)
+        except (json.JSONDecodeError, OSError):
+            prev_train_run = 0
+    train_run = prev_train_run + 1
+
     log("Loading dataset...")
     ds = Dataset.from_csv_dir(data_dir)
     train_complaints, test_complaints = temporal_split(ds)
@@ -53,13 +72,15 @@ def train_and_save(data_dir: str = "../../data/output", seed: int = 42, rebuild:
     joblib.dump(advanced_calibrated, ARTIFACTS_DIR / "advanced_calibrated.joblib")
 
     metadata = {
-        "baseline_model_version": baseline_model.MODEL_VERSION,
-        "advanced_model_version": advanced_model.MODEL_VERSION,
+        "baseline_model_version": f"{baseline_model.MODEL_VERSION}.{train_run}",
+        "advanced_model_version": f"{advanced_model.MODEL_VERSION}.{train_run}",
         "baseline_features": baseline_model.FEATURE_COLUMNS,
         "advanced_features": advanced_model.FEATURE_COLUMNS,
         "n_train_complaints": int(len(train_complaints)),
         "n_test_complaints": int(len(test_complaints)),
         "seed": seed,
+        "train_run": train_run,
+        "trained_at": datetime.now(timezone.utc).isoformat(),
     }
     with open(ARTIFACTS_DIR / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)

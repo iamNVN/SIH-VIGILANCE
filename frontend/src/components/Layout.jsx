@@ -60,6 +60,19 @@ function isNavItemActive(pathname, item) {
   return item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
 }
 
+// `trained_at` is metadata.json's own real timestamp (ml/train.py writes
+// it on every training run, not just the first) -- persisted to disk, so
+// this stays accurate across backend restarts, unlike retrain_manager's
+// in-memory "last retrained this boot" state (Settings page's own copy).
+function modelTrainedLabel(iso) {
+  if (!iso) return null;
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -71,20 +84,25 @@ export default function Layout() {
   // Active-learning feedback loop (Blueprint Section 15/23) -- surfaced
   // globally (Layout mounts once for the whole app), not tucked into one
   // page, since every real Approve/Reject anywhere logs a label here (see
-  // complaints.py's apply_decision). Deliberately worded "logged for
-  // retraining," not "retrained" -- ml/train.py doesn't consume this
-  // automatically yet (see api/feedback.py's docstring).
+  // complaints.py's apply_decision). core/retrain_manager.py consumes
+  // these automatically once enough accumulate -- see the model-trained
+  // line below, sourced from the same real metadata.json that write updates.
   const { data: feedback, reload: reloadFeedback } = useApi((signal) => api.feedbackSummary(signal), []);
+  const { data: sysInfo, reload: reloadSysInfo } = useApi((signal) => api.systemInfo(signal), []);
+  const modelMeta = sysInfo?.metadata;
 
   // useApi fetches once on mount (Layout doesn't remount per route -- only
   // Outlet's content does), so a decision made on a case page would never
   // otherwise be reflected here until a full reload. CaseWorkspace.jsx
   // dispatches this event right after a real Approve/Reject persists a
-  // feedback label, so the sidebar count updates live in the same session.
+  // feedback label, so the sidebar count -- and, once a threshold-triggered
+  // retrain has had time to land, the model-trained line -- update live in
+  // the same session instead of only on next page load.
   useEffect(() => {
-    window.addEventListener("predictrace:feedback-logged", reloadFeedback);
-    return () => window.removeEventListener("predictrace:feedback-logged", reloadFeedback);
-  }, [reloadFeedback]);
+    const handler = () => { reloadFeedback(); reloadSysInfo(); };
+    window.addEventListener("predictrace:feedback-logged", handler);
+    return () => window.removeEventListener("predictrace:feedback-logged", handler);
+  }, [reloadFeedback, reloadSysInfo]);
 
   const handleLogout = () => {
     logout();
@@ -169,6 +187,12 @@ export default function Layout() {
                   {feedback?.total_labels > 0 && (
                     <p className="mt-1 pl-4 text-[10px] text-ink-muted">
                       {feedback.total_labels} investigator label{feedback.total_labels === 1 ? "" : "s"} logged for retraining
+                    </p>
+                  )}
+                  {modelMeta?.advanced_model_version && (
+                    <p className="mt-1 pl-4 text-[10px] text-ink-muted">
+                      Model <span className="text-ink-secondary">{modelMeta.advanced_model_version}</span>
+                      {modelMeta.trained_at && ` · trained ${modelTrainedLabel(modelMeta.trained_at)}`}
                     </p>
                   )}
                 </div>
